@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LinkedIn Job Lens</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>LinkedIn Job Lens</h1>
+    </header>
+
+    <!-- Tab Navigation -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="scan">Scan</button>
+      <button class="tab-btn" data-tab="saved">Scanned Jobs</button>
+    </div>
+
+    <!-- Scan Tab Content -->
+    <div id="scanTab" class="tab-content active">
+      <div class="container">
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+          <button id="fullListScan" class="btn btn-primary">
+            Start Auto-Scan List
+          </button>
+          <button id="rescan" class="btn btn-secondary">Re-scan Job</button>
+        </div>
+
+        <!-- Visa Keywords Section -->
+        <div class="kw-box">
+          <div class="kw-box-header" data-toggle="visa">
+            <h3 class="kw-section-title">Visa Keywords</h3>
+            <span class="kw-toggle" id="visaToggle">▶</span>
+          </div>
+          <div id="visaKwContent" class="kw-content search-input-hidden">
+            <div class="kw-row">
+              <input
+                id="visaKwInput"
+                class="kw-input"
+                placeholder="Add visa keyword… (e.g., H1B, relocation)"
+              />
+              <button id="addVisaKw" class="btn btn-small">Add</button>
+            </div>
+            <div id="visaKwChips" class="kw-row"></div>
+          </div>
+        </div>
+
+        <!-- Custom Keywords Section -->
+        <div class="kw-box">
+          <div class="kw-box-header" data-toggle="custom">
+            <h3 class="kw-section-title">Custom Keywords</h3>
+            <span class="kw-toggle" id="customToggle">▶</span>
+          </div>
+          <div id="customKwContent" class="kw-content search-input-hidden">
+            <div class="kw-row">
+              <input
+                id="customKwInput"
+                class="kw-input"
+                placeholder="Add custom keyword… (e.g., React, Python)"
+              />
+              <button id="addCustomKw" class="btn btn-small">Add</button>
+            </div>
+            <div id="customKwChips" class="kw-row"></div>
+          </div>
+        </div>
+
+        <!-- Separator -->
+        <div class="separator"></div>
+
+        <!-- Copy button appears only when JD is present -->
+        <div id="jobTitleContainer" class="job-title-container">
+          <h3 id="jobTitleDisplay" class="job-title-display"></h3>
+          <div id="companyNameDisplay" class="company-name"></div>
+        </div>
+        <button id="copyJD" class="btn btn-block search-input-hidden">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            class="copy-icon"
+          >
+            <path
+              d="M5.5 2.5H11.5C12.0523 2.5 12.5 2.94772 12.5 3.5V9.5C12.5 10.0523 12.0523 10.5 11.5 10.5H9.5V12.5C9.5 13.0523 9.05228 13.5 8.5 13.5H2.5C1.94772 13.5 1.5 13.0523 1.5 12.5V6.5C1.5 5.94772 1.94772 5.5 2.5 5.5H4.5V3.5C4.5 2.94772 4.94772 2.5 5.5 2.5Z"
+              stroke="currentColor"
+              stroke-width="1.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M4.5 5.5H8.5C9.05228 5.5 9.5 5.94772 9.5 6.5V10.5"
+              stroke="currentColor"
+              stroke-width="1.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          Copy Job Description
+        </button>
+
+        <!-- Matches -->
+        <div id="summary" class="totals">Scanning…</div>
+        <div id="matchList" class="match-list"></div>
+      </div>
+    </div>
+
+    <!-- Saved Jobs Tab Content -->
+    <div id="savedTab" class="tab-content">
+      <div class="container">
+        <!-- Filter Buttons, Search, and Menu -->
+        <div class="saved-header">
+          <!-- Search Input hidden by default -->
+          <input
+            type="text"
+            id="searchInput"
+            class="saved-search-input search-input-hidden"
+            placeholder="Search jobs..."
+          />
+          <!-- Search, Filter, Sort, and Menu Icons -->
+          <div class="saved-header-icons">
+            <!-- Search Button -->
+            <button
+              id="searchBtn"
+              class="btn btn-small icon-btn"
+              title="Search jobs"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M14 14L11.1 11.1"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </button>
+            <!-- Filter Button -->
+            <button
+              id="filterBtn"
+              class="btn btn-small icon-btn"
+              title="Filter jobs"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M2 3h12l-5 6v4l-2-1v-3l-5-6z"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </button>
+            <!-- Sort Button -->
+            <button
+              id="sortBtn"
+              class="btn btn-small icon-btn"
+              title="Sort jobs"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M2 4h12M4 8h8m-6 4h4"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+            <!-- 3-dots Menu -->
+            <button
+              id="menuBtn"
+              class="btn btn-small icon-btn"
+              title="More options"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle cx="8" cy="4" r="1.5" fill="currentColor" />
+                <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                <circle cx="8" cy="12" r="1.5" fill="currentColor" />
+              </svg>
+            </button>
+            <div id="menuDropdown" class="dropdown-menu">
+              <button id="exportJobs" class="dropdown-menu-item">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M8 2V10M8 2L5.5 4.5M8 2L10.5 4.5"
+                    stroke="currentColor"
+                    stroke-width="1.2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M2 10V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V10"
+                    stroke="currentColor"
+                    stroke-width="1.2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+                <span>Export Jobs</span>
+              </button>
+              <button id="importJobs" class="dropdown-menu-item">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M8 10V2M8 10L5.5 7.5M8 10L10.5 7.5"
+                    stroke="currentColor"
+                    stroke-width="1.2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M2 10V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V10"
+                    stroke="currentColor"
+                    stroke-width="1.2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+                <span>Import Jobs</span>
+              </button>
+            </div>
+            <!-- Filter Dropdown -->
+            <div id="filterDropdown" class="dropdown-menu filter-dropdown">
+              <div id="filterVisaOption" class="dropdown-menu-item">
+                <span class="filter-indicator">●</span>
+                <span>Visa Only</span>
+              </div>
+              <div id="filterMatchesOption" class="dropdown-menu-item">
+                <span class="filter-indicator">●</span>
+                <span>Matches Only</span>
+              </div>
+            </div>
+            <!-- Sort Dropdown -->
+            <div id="sortDropdown" class="dropdown-menu sort-dropdown">
+              <div
+                id="sortLatestOption"
+                class="dropdown-menu-item sort-dropdown-item active"
+                data-sort="latest"
+              >
+                <span class="sort-indicator active">●</span>
+                <span>Latest Scans</span>
+              </div>
+              <div
+                id="sortEarliestOption"
+                class="dropdown-menu-item sort-dropdown-item"
+                data-sort="earliest"
+              >
+                <span class="sort-indicator">●</span>
+                <span>Oldest Scans</span>
+              </div>
+              <div
+                id="sortMostMatchesOption"
+                class="dropdown-menu-item sort-dropdown-item"
+                data-sort="most-matches"
+              >
+                <span class="sort-indicator">●</span>
+                <span>Most Matches</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <input
+          type="file"
+          id="importFileInput"
+          accept=".json"
+          class="search-input-hidden"
+        />
+        <div class="saved-jobs-wrapper">
+          <div id="savedJobsList" class="saved-jobs-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="panel.js"></script>
+  </body>
+</html>
