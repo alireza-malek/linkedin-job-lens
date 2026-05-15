@@ -159,6 +159,36 @@ function extractJobTitle() {
       if (title && title.length > 0) return title;
     }
   }
+
+  // New LinkedIn layout (AI search detail & full-page views)
+  // Title uses class b46cb6f5 in current LinkedIn version
+  const newLayoutTitle = document.querySelector('p.b46cb6f5');
+  if (newLayoutTitle) {
+    const title = (newLayoutTitle.innerText || newLayoutTitle.textContent || '').trim();
+    if (title && title.length > 0) return title;
+  }
+
+  // Fallback - walk up from company aria-label to find sibling containing title
+  const companyLabelEl = document.querySelector('[aria-label^="Company,"]');
+  if (companyLabelEl) {
+    let el = companyLabelEl;
+    for (let i = 0; i < 10 && el; i++) {
+      const next = el.nextElementSibling;
+      if (next) {
+        const p = next.querySelector('p');
+        if (p) {
+          const text = (p.innerText || p.textContent || '').trim();
+          // Title text doesn't contain "·" separator (location/posted lines do)
+          if (text && text.length > 3 && !text.includes('·')) {
+            return text;
+          }
+        }
+      }
+      el = el.parentElement;
+      if (!el || el.tagName === 'BODY') break;
+    }
+  }
+
   return null;
 }
 
@@ -178,6 +208,14 @@ function extractCompanyName() {
       const company = (node.innerText || node.textContent || '').trim();
       if (company && company.length > 0) return company;
     }
+  }
+
+  // AI job search layout - company name from aria-label="Company, {name}."
+  const companyLabelEl = document.querySelector('[aria-label^="Company,"]');
+  if (companyLabelEl) {
+    const label = companyLabelEl.getAttribute('aria-label');
+    const match = label.match(/^Company,\s*(.+?)\.?\s*$/);
+    if (match && match[1]) return match[1].trim();
   }
 
   // Fallback for new LinkedIn layout:
@@ -382,7 +420,8 @@ function init() {
   // Check on job link clicks (main trigger for scanning)
   document.addEventListener('click', (e) => {
     const jobLink = e.target.closest('a[href*="/jobs/view/"]');
-    if (jobLink) {
+    const aiJobCard = e.target.closest('div[role="button"][componentkey^="job-card-component-ref-"]');
+    if (jobLink || aiJobCard) {
       // Trigger URL/card change checks after a delay to catch the URL update
       // These functions will handle scanning (no need to call checkAndUpdateBadgesForOpenJob directly)
       setTimeout(() => {
@@ -409,14 +448,16 @@ function init() {
           if (node.querySelector && (
             node.querySelector('[data-occludable-job-id]') ||
             node.querySelector('[data-job-id]') ||
-            node.querySelector('a[href*="/jobs/view/"]')
+            node.querySelector('a[href*="/jobs/view/"]') ||
+            node.querySelector('[componentkey^="job-card-component-ref-"]')
           )) {
             shouldUpdateBadges = true;
           }
           // Also check if the node itself is a job card
           if (node.getAttribute && (
             node.getAttribute('data-occludable-job-id') ||
-            node.getAttribute('data-job-id')
+            node.getAttribute('data-job-id') ||
+            (node.getAttribute('componentkey') || '').startsWith('job-card-component-ref-')
           )) {
             shouldUpdateBadges = true;
           }
@@ -446,6 +487,7 @@ function init() {
   const jobListContainer = document.querySelector('.scaffold-layout__list-container') ||
     document.querySelector('.jobs-search-results-list') ||
     document.querySelector('.scaffold-layout__list') ||
+    document.querySelector('[data-testid="lazy-column"]') ||
     document.body;
 
   if (jobListContainer) {
@@ -715,7 +757,7 @@ function stopFullListScan() {
 
 // Scroll to load more jobs (LinkedIn lazy loads)
 async function scrollToLoadMore() {
-  const scrollContainer = document.querySelector('.jobs-search-results-list, .scaffold-layout__list-container') || window;
+  const scrollContainer = document.querySelector('.jobs-search-results-list, .scaffold-layout__list-container, [data-testid="lazy-column"]') || window;
   const scrollHeight = scrollContainer === window ? document.documentElement.scrollHeight : scrollContainer.scrollHeight;
   const scrollTop = scrollContainer === window ? window.pageYOffset : scrollContainer.scrollTop;
   const clientHeight = scrollContainer === window ? window.innerHeight : scrollContainer.clientHeight;
@@ -733,7 +775,7 @@ async function scrollToLoadMore() {
 // Try to go to next page
 async function goToNextPage() {
   // Look for "Next" button
-  const nextButton = document.querySelector('button[aria-label*="Next"], button[aria-label*="next"], .artdeco-pagination__button--next:not([disabled])');
+  const nextButton = document.querySelector('button[aria-label*="Next"], button[aria-label*="next"], .artdeco-pagination__button--next:not([disabled]), button[data-testid="pagination-controls-next-button-visible"]');
   if (nextButton && !nextButton.disabled) {
     nextButton.click();
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1127,8 +1169,14 @@ async function autoScanJob(jobId) {
     }
 
     // Find and click the job link to open it
-    const jobLink = card.querySelector(`a[href*="/jobs/view/${jobId}"]`);
-    if (!jobLink) {
+    let clickTarget = card.querySelector(`a[href*="/jobs/view/${jobId}"]`);
+
+    // AI job search cards are themselves clickable (div[role="button"])
+    if (!clickTarget && card.getAttribute('role') === 'button') {
+      clickTarget = card;
+    }
+
+    if (!clickTarget) {
       scanningJobs.delete(jobId);
       return;
     }
@@ -1137,7 +1185,7 @@ async function autoScanJob(jobId) {
     urlScanInProgress = true;
 
     // Click to open the job
-    jobLink.click();
+    clickTarget.click();
 
     // Wait for the card to become active (LinkedIn two-pane view)
     // Check both URL change (full page) and active class (two-pane)
@@ -1153,9 +1201,8 @@ async function autoScanJob(jobId) {
         innerCard.hasAttribute('aria-current')
       );
 
-      // Check if URL changed (full page view)
-      const currentUrl = window.location.href;
-      const urlJobId = currentUrl.match(/\/jobs\/view\/(\d+)/)?.[1];
+      // Check if URL changed (full page view or AI search view)
+      const urlJobId = extractJobIdFromUrl();
       const urlMatches = urlJobId === jobId;
 
       if (isActive || urlMatches) {
@@ -1457,6 +1504,12 @@ function findJobCards() {
     }
   }
 
+  // AI job search page (/jobs/search-results/) — cards are div[role="button"] with componentkey
+  const aiJobCards = document.querySelectorAll('div[role="button"][componentkey^="job-card-component-ref-"]');
+  if (aiJobCards.length > 0) {
+    return Array.from(aiJobCards);
+  }
+
   const fallbackSelectors = [
     '.jobs-search-results__list-item',
     '.scaffold-layout__list-container [data-view-name="job-card"]',
@@ -1483,6 +1536,13 @@ function extractJobId(cardElement) {
 
   jobId = cardElement.getAttribute('data-job-id');
   if (jobId) return jobId;
+
+  // AI job search page — extract from componentkey attribute
+  const componentKey = cardElement.getAttribute('componentkey');
+  if (componentKey) {
+    const ckMatch = componentKey.match(/^job-card-component-ref-(\d+)$/);
+    if (ckMatch) return ckMatch[1];
+  }
 
   const jobIdElement = cardElement.querySelector('[data-job-id]');
   if (jobIdElement) {

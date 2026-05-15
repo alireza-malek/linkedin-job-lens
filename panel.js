@@ -195,6 +195,7 @@ function isJobPage() {
     url.includes('/jobs?') ||
     url.includes('/search/jobs') ||
     url.includes('/jobs/search') ||
+    url.includes('/jobs/search-results') ||
     url.includes('/jobs/collections');
 }
 
