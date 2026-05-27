@@ -4,13 +4,13 @@ A Chrome extension that helps job seekers find LinkedIn job postings with visa s
 
 ## ✨ Features
 
-- **Auto-Scan**: Automatically scans LinkedIn job listings for visa sponsorship keywords
-- **Custom Keywords**: Add your own keywords to search for specific terms
+- **Auto-Scan**: Automatically scans LinkedIn job listings for visa sponsorship or custom keywords
+- **Custom Keywords**: Add your own keywords in **plain text** or **regex** to search for specific terms
 - **Smart Highlighting**: Highlights visa/relocation keywords in job descriptions
 - **Job Saving**: Save scanned jobs with match details to a searchable list
 - **Export/Import Saved Jobs**: Copy job descriptions or export saved jobs
 - **Badge System**: Visual badges on job cards showing match status
-- **Full List Scanning**: Automatically scan entire job search result pages
+- **Full List Scanning**: Automatically navigates and scan entire job search result pages
 
 ## 🚀 Installation
 

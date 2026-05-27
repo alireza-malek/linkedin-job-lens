@@ -32,6 +32,7 @@ const INITIAL_LOAD_DELAY_MS = 1000;
 const RETRY_DELAY_MS = 2000;
 const RETRY_DELAY_MS_LONG = 3000;
 const MIN_DESCRIPTION_LENGTH = 100;
+const MAX_REGEX_MATCH_ITERATIONS = 1000;
 
 // ============================================================================
 // DOM OBSERVATION (Simplified - only URL and click based)
@@ -638,7 +639,7 @@ async function updateBadgeFromStorage(card, jobId) {
   }
 
   // Check for quick matches in card preview
-  const cardText = (card.innerText || '').toLowerCase();
+  const cardText = (card.innerText || '');
   const visaKws = currentVisaKeywords || DEFAULT_VISA_KEYWORDS;
   const customKws = currentCustomKeywords || [];
   const visaQuickMatches = scanTextForKeywords(cardText, visaKws);
@@ -846,13 +847,12 @@ async function scanCurrentJob(forceRescan = false) {
 
         // Map highlighted results back to visa/custom matches with anchors
         const visaKws = currentVisaKeywords || DEFAULT_VISA_KEYWORDS;
-        const visaKeywordSet = new Set(visaKws.map(k => k.toLowerCase()));
+        const visaKeywordSet = new Set(visaKws.map(k => parseKeyword(k).key));
         highlightedVisaMatches = [];
         highlightedCustomMatches = [];
 
         highlightedResults.forEach(result => {
-          const keyLower = result.key.toLowerCase();
-          if (visaKeywordSet.has(keyLower)) {
+          if (visaKeywordSet.has(result.key)) {
             const existing = highlightedVisaMatches.find(m => m.key === keyLower);
             if (existing) {
               existing.anchors.push(...result.anchors);
@@ -868,6 +868,10 @@ async function scanCurrentJob(forceRescan = false) {
             }
           }
         });
+
+        // Merge regex matches (not highlighted in DOM but should appear in results)
+        mergeRegexIntoHighlighted(visaMatches, highlightedVisaMatches);
+        mergeRegexIntoHighlighted(customMatches, highlightedCustomMatches);
 
         // Insert results banner at the start of job description
         insertResultsBanner(jdNode, highlightedVisaMatches, highlightedCustomMatches);
@@ -938,13 +942,12 @@ async function scanCurrentJob(forceRescan = false) {
     const allMatches = scanTextForKeywords(description, allKeywords);
 
     // Categorize matches into visa and custom
-    const visaKeywordSet = new Set(visaKws.map(k => k.toLowerCase()));
+    const visaKeywordSet = new Set(visaKws.map(k => parseKeyword(k).key));
     const visaMatches = [];
     const customMatches = [];
 
     allMatches.forEach(match => {
-      const keyLower = match.key.toLowerCase();
-      if (visaKeywordSet.has(keyLower)) {
+      if (visaKeywordSet.has(match.key)) {
         visaMatches.push(match);
       } else {
         customMatches.push(match);
@@ -985,7 +988,7 @@ async function scanCurrentJob(forceRescan = false) {
       const highlightedResults = highlightKeywords(jdNode);
 
       // Map highlighted results back to visa/custom matches with anchors
-      const visaKeywordSet = new Set(visaKws.map(k => k.toLowerCase()));
+      const visaKeywordSet = new Set(visaKws.map(k => parseKeyword(k).key));
       highlightedVisaMatches = [];
       highlightedCustomMatches = [];
 
@@ -1007,6 +1010,10 @@ async function scanCurrentJob(forceRescan = false) {
           }
         }
       });
+
+      // Merge regex matches (not highlighted in DOM but should appear in results)
+      mergeRegexIntoHighlighted(visaMatches, highlightedVisaMatches);
+      mergeRegexIntoHighlighted(customMatches, highlightedCustomMatches);
 
       // Insert results banner at the start of job description
       insertResultsBanner(jdNode, highlightedVisaMatches, highlightedCustomMatches);
@@ -1227,13 +1234,12 @@ async function autoScanJob(jobId) {
       const allMatches = scanTextForKeywords(description, allKeywords);
 
       // Categorize matches
-      const visaKeywordSet = new Set(visaKws.map(k => k.toLowerCase()));
+      const visaKeywordSet = new Set(visaKws.map(k => parseKeyword(k).key));
       const visaMatches = [];
       const customMatches = [];
 
       allMatches.forEach(match => {
-        const keyLower = match.key.toLowerCase();
-        if (visaKeywordSet.has(keyLower)) {
+        if (visaKeywordSet.has(match.key)) {
           visaMatches.push(match);
         } else {
           customMatches.push(match);
@@ -1573,60 +1579,98 @@ function extractJobId(cardElement) {
 function scanTextForKeywords(text, keywords) {
   if (!text || !keywords || !keywords.length) return [];
 
-  // Remove duplicates from keywords list to prevent double scanning
-  const uniqueKeywords = [...new Set(keywords.map(k => k.toLowerCase()))].map(k => {
-    // Find original keyword (preserve case from first occurrence)
-    return keywords.find(orig => orig.toLowerCase() === k) || k;
-  });
+  // Separate literal and regex keywords
+  const literals = [];
+  const regexes = [];
+
+  for (const kw of keywords) {
+    const parsed = parseKeyword(kw);
+    if (parsed.type === 'regex') {
+      regexes.push(parsed);
+    } else {
+      literals.push(kw);
+    }
+  }
 
   const matches = [];
-  const foundKeys = new Map();
 
-  // Sort keywords by length (longest first) to match longer phrases first
-  const sortedKeywords = uniqueKeywords.sort((a, b) => b.length - a.length);
+  // --- Scan literal keywords (existing logic) ---
+  if (literals.length > 0) {
+    const uniqueKeywords = [...new Set(literals.map(k => k.toLowerCase()))].map(k => {
+      return literals.find(orig => orig.toLowerCase() === k) || k;
+    });
 
-  // Track which character positions have been matched
-  const matchedPositions = new Set();
+    const foundKeys = new Map();
+    const sortedKeywords = uniqueKeywords.sort((a, b) => b.length - a.length);
+    const matchedPositions = new Set();
 
-  for (const keyword of sortedKeywords) {
-    const keywordLower = keyword.toLowerCase();
-    const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(escapedKeyword, 'gi');
+    for (const keyword of sortedKeywords) {
+      const keywordLower = keyword.toLowerCase();
+      const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedKeyword, 'gi');
 
-    let match;
-    regex.lastIndex = 0;
+      let match;
+      regex.lastIndex = 0;
 
-    while ((match = regex.exec(text)) !== null) {
-      const start = match.index;
-      const end = start + match[0].length;
+      while ((match = regex.exec(text)) !== null) {
+        const start = match.index;
+        const end = start + match[0].length;
 
-      // Check if this position range overlaps with any already matched position
-      let overlaps = false;
-      for (let pos = start; pos < end; pos++) {
-        if (matchedPositions.has(pos)) {
-          overlaps = true;
+        let overlaps = false;
+        for (let pos = start; pos < end; pos++) {
+          if (matchedPositions.has(pos)) {
+            overlaps = true;
+            break;
+          }
+        }
+
+        if (!overlaps) {
+          for (let pos = start; pos < end; pos++) {
+            matchedPositions.add(pos);
+          }
+
+          if (!foundKeys.has(keywordLower)) {
+            foundKeys.set(keywordLower, { key: keywordLower, count: 0 });
+            matches.push(foundKeys.get(keywordLower));
+          }
+          foundKeys.get(keywordLower).count++;
+        }
+
+        if (match[0].length === 0) {
+          regex.lastIndex++;
+        }
+      }
+    }
+  }
+
+  // --- Scan regex patterns ---
+  for (const parsed of regexes) {
+    try {
+      // Always ensure 'g' flag for iteration; preserve user's other flags
+      let flags = parsed.flags || '';
+      if (!flags.includes('g')) flags += 'g';
+      const regex = new RegExp(parsed.pattern, flags);
+      let count = 0;
+      let match;
+      let iterations = 0;
+
+      while ((match = regex.exec(text)) !== null) {
+        count++;
+        iterations++;
+        if (iterations >= MAX_REGEX_MATCH_ITERATIONS) {
+          console.warn('Regex match iteration limit reached for:', parsed.original);
           break;
         }
-      }
-
-      if (!overlaps) {
-        // Mark these positions as matched
-        for (let pos = start; pos < end; pos++) {
-          matchedPositions.add(pos);
+        if (match[0].length === 0) {
+          regex.lastIndex++;
         }
-
-        // Update match count
-        if (!foundKeys.has(keywordLower)) {
-          foundKeys.set(keywordLower, { key: keywordLower, count: 0 });
-          matches.push(foundKeys.get(keywordLower));
-        }
-        foundKeys.get(keywordLower).count++;
       }
 
-      // Prevent infinite loop
-      if (match[0].length === 0) {
-        regex.lastIndex++;
+      if (count > 0) {
+        matches.push({ key: parsed.key, count });
       }
+    } catch (e) {
+      console.warn('Error scanning regex pattern:', parsed.original, e.message);
     }
   }
 
@@ -1641,16 +1685,66 @@ function scanTextForKeywords(text, keywords) {
 function normalizeKeywords(list) {
   if (!Array.isArray(list)) return [];
   const uniq = new Set();
+  const result = [];
   list.forEach(k => {
     if (k == null) return;
-    const s = String(k).trim().toLowerCase();
-    if (s) uniq.add(s);
+    const s = String(k).trim();
+    if (!s) return;
+    const parsed = parseKeyword(s);
+    if (parsed.type === 'regex') {
+      if (!uniq.has(parsed.key)) {
+        uniq.add(parsed.key);
+        result.push(s);
+      }
+    } else {
+      const lower = s.toLowerCase();
+      if (!uniq.has(lower)) {
+        uniq.add(lower);
+        result.push(lower);
+      }
+    }
   });
-  return Array.from(uniq);
+  return result;
+}
+
+/**
+ * Parse a keyword into literal or regex type.
+ * Regex keywords are wrapped in /.../ (e.g., /Typescript.*Node.js/)
+ * @param {string} kw
+ * @returns {{ type: 'literal'|'regex', pattern: string, original: string, key: string }}
+ */
+function parseKeyword(kw) {
+  const trimmed = String(kw).trim();
+
+  // Regex pattern: /pattern/ or /pattern/flags (e.g., /Typescript.*Node.js/i)
+  if (trimmed.startsWith('/')) {
+    const lastSlashIdx = trimmed.lastIndexOf('/');
+    if (lastSlashIdx > 0) { // Must have at least one char between first and last /
+      const pattern = trimmed.slice(1, lastSlashIdx);
+      const flags = trimmed.slice(lastSlashIdx + 1);
+
+      // Validate: flags must be valid RegExp flag chars only, pattern non-empty
+      if (pattern.length > 0 && /^[gimsuy]*$/.test(flags)) {
+        try {
+          new RegExp(pattern, flags);
+          return { type: 'regex', pattern, flags, original: trimmed, key: trimmed };
+        } catch (e) {
+          console.warn('Invalid regex keyword, treating as literal:', trimmed, e.message);
+        }
+      }
+    }
+    // Starts with / but isn't a valid regex — fall through to literal
+  }
+
+  return { type: 'literal', pattern: trimmed.toLowerCase(), original: trimmed, key: trimmed.toLowerCase() };
 }
 
 function buildRegexFromKeywords(keywords) {
-  const parts = keywords.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  // Only include literal keywords for DOM highlighting
+  // Regex patterns are NOT highlighted (they can span huge text ranges)
+  const literals = keywords.filter(kw => parseKeyword(kw).type === 'literal');
+  if (literals.length === 0) return null;
+  const parts = literals.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   return new RegExp(`(${parts.join('|')})`, 'gi');
 }
 
@@ -1667,6 +1761,7 @@ function highlightKeywords(root) {
   const customKws = currentCustomKeywords || [];
   const allKeywords = [...visaKws, ...customKws];
   const regex = buildRegexFromKeywords(allKeywords);
+  if (!regex) return results; // No literal keywords to highlight
   let counter = 0;
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -1717,6 +1812,24 @@ function addResult(results, key, anchorId) {
   } else {
     results.push({ key, count: 1, anchors: [anchorId] });
   }
+}
+
+/**
+ * Merge regex matches from scan into highlighted results for panel display.
+ * Regex matches don't get DOM highlights but should appear in panel/banner.
+ * @param {Array} scanMatches - Full scan results (may include regex matches)
+ * @param {Array} highlightedMatches - Highlighted results (literal only, modified in-place)
+ */
+function mergeRegexIntoHighlighted(scanMatches, highlightedMatches) {
+  if (!scanMatches || !highlightedMatches) return;
+  scanMatches.forEach(match => {
+    const parsed = parseKeyword(match.key);
+    if (parsed.type !== 'regex') return;
+    const existing = highlightedMatches.find(m => m.key === match.key);
+    if (!existing) {
+      highlightedMatches.push({ key: match.key, count: match.count, anchors: [] });
+    }
+  });
 }
 
 function unhighlight(root) {

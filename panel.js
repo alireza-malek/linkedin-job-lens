@@ -49,6 +49,7 @@ const sortEarliestOption = document.getElementById('sortEarliestOption');
 const sortMostMatchesOption = document.getElementById('sortMostMatchesOption');
 
 let isFullListScanning = false;
+let scanTimeoutId = null; // To track the delayed scanning message
 
 // Notification system for user feedback
 function showNotification(message, type = 'info', duration = 3000) {
@@ -128,6 +129,24 @@ let currentTabId = null;
 let currentTabUrl = null;
 let currentJobId = null;
 let currentJobTitle = null;
+
+// Helper functions for delayed scanning message
+function clearScanTimeout() {
+  if (scanTimeoutId) {
+    clearTimeout(scanTimeoutId);
+    scanTimeoutId = null;
+  }
+}
+
+function startScanTimeout() {
+  clearScanTimeout();
+  scanTimeoutId = setTimeout(() => {
+    // Only show if still in the scanning state
+    if (summaryEl.textContent.includes('Scanning job description')) {
+      summaryEl.innerHTML = 'Scanning job description and badges...<div style="margin-top: 6px; font-weight: 400;">If it takes longer than expected, reload the page.</div>';
+    }
+  }, 10000);
+}
 
 // Determine current tab id and URL for filtering incoming results
 function updateActiveTab(cb) {
@@ -225,7 +244,8 @@ function renderCurrentTabState() {
 
   if (!isLinkedIn) {
     // Not on LinkedIn
-    summaryEl.textContent = 'Navigate to LinkedIn to use this tool';
+    clearScanTimeout();
+    summaryEl.innerHTML = 'Navigate to <a href="https://www.linkedin.com/jobs/" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline;">LinkedIn Jobs</a> <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 1px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> to use this tool';
     matchListEl.innerHTML = '';
     copyBtn.classList.add('search-input-hidden');
     jobTitleContainer.classList.add('search-input-hidden');
@@ -234,6 +254,7 @@ function renderCurrentTabState() {
 
   if (!isJob) {
     // On LinkedIn but not on job pages
+    clearScanTimeout();
     summaryEl.textContent = 'Navigate to job listings or job details to scan';
     matchListEl.innerHTML = '';
     copyBtn.classList.add('search-input-hidden');
@@ -245,6 +266,7 @@ function renderCurrentTabState() {
   summaryEl.textContent = 'Scanning job description and badges...';
   matchListEl.innerHTML = '';
   copyBtn.classList.add('search-input-hidden');
+  startScanTimeout();
 }
 
 function renderKeywords() {
@@ -359,6 +381,8 @@ addCustomKwBtn.addEventListener('click', () => {
 
 rescanBtn.addEventListener('click', () => {
   if (isLinkedInTab()) {
+    summaryEl.textContent = 'Scanning job description and badges...';
+    startScanTimeout();
     sendToContent('REQUEST_SCAN', {});
   }
 });
@@ -480,6 +504,9 @@ chrome.runtime.onMessage.addListener((msg) => {
 });
 
 function renderMatches({ hasJD, visaMatches = [], customMatches = [], jobTitle = null, companyName = null }) {
+  // Clear the "Scanning..." timeout since results have arrived
+  clearScanTimeout();
+
   if (hasJD) {
     copyBtn.classList.remove('search-input-hidden');
   } else {
@@ -1086,4 +1113,3 @@ function escapeHtml(s) {
   if (typeof s !== 'string') return '';
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c]));
 }
-
