@@ -59,7 +59,7 @@ function showNotification(message, type = 'info', duration = 3000) {
 
   const notification = document.createElement('div');
   notification.className = `jl-notification jl-notification--${type}`;
-  notification.textContent = message;
+  notification.innerHTML = escapeHtml(message);
   notification.style.cssText = `
     position: fixed;
     top: 20px;
@@ -687,7 +687,7 @@ function renderSavedJobs(savedJobs) {
 
   // Show message if no jobs match search
   if (jobs.length === 0 && currentSearchTerm) {
-    savedJobsListEl.innerHTML = `<div class="muted" style="padding: 32px; text-align: center;">No jobs match "${currentSearchTerm}".<br>Try a different search term.</div>`;
+    savedJobsListEl.innerHTML = `<div class="muted" style="padding: 32px; text-align: center;">No jobs match "${escapeHtml(currentSearchTerm)}".<br>Try a different search term.</div>`;
     return;
   }
 

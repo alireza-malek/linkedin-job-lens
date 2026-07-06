@@ -141,7 +141,9 @@ const STORAGE_KEY_JOB_RESULTS = 'jl_job_scan_results';
 
 // Extract job title from DOM
 function extractJobTitle() {
+  const container = getDetailsContainer();
   const selectors = [
+    'p[class*="_3293afb7"]', // Hashed class in new layout
     '.jobs-details-top-card__job-title',
     'h1[data-test-id="job-details-title"]',
     'h1.jobs-details-top-card__job-title',
@@ -154,8 +156,9 @@ function extractJobTitle() {
     'h1'
   ];
   for (const sel of selectors) {
-    const node = document.querySelector(sel);
-    if (node) {
+    const nodes = container.querySelectorAll(sel);
+    for (const node of nodes) {
+      if (node.closest('.jobs-search-results-list, .jobs-search-results, .jobs-search-results-list__list-item')) continue;
       const title = (node.innerText || node.textContent || '').trim();
       if (title && title.length > 0) return title;
     }
@@ -163,15 +166,17 @@ function extractJobTitle() {
 
   // New LinkedIn layout (AI search detail & full-page views)
   // Title uses class b46cb6f5 in current LinkedIn version
-  const newLayoutTitle = document.querySelector('p.b46cb6f5');
-  if (newLayoutTitle) {
+  const newLayoutTitles = container.querySelectorAll('p.b46cb6f5');
+  for (const newLayoutTitle of newLayoutTitles) {
+    if (newLayoutTitle.closest('.jobs-search-results-list, .jobs-search-results, .jobs-search-results-list__list-item')) continue;
     const title = (newLayoutTitle.innerText || newLayoutTitle.textContent || '').trim();
     if (title && title.length > 0) return title;
   }
 
   // Fallback - walk up from company aria-label to find sibling containing title
-  const companyLabelEl = document.querySelector('[aria-label^="Company,"]');
-  if (companyLabelEl) {
+  const companyLabelEls = container.querySelectorAll('[aria-label^="Company,"]');
+  for (const companyLabelEl of companyLabelEls) {
+    if (companyLabelEl.closest('.jobs-search-results-list, .jobs-search-results, .jobs-search-results-list__list-item')) continue;
     let el = companyLabelEl;
     for (let i = 0; i < 10 && el; i++) {
       const next = el.nextElementSibling;
@@ -195,6 +200,7 @@ function extractJobTitle() {
 
 // Extract company name from DOM
 function extractCompanyName() {
+  const container = getDetailsContainer();
   const selectors = [
     '.jobs-details-top-card__company-name',
     '.jobs-details-top-card__company-info a',
@@ -204,16 +210,18 @@ function extractCompanyName() {
     '.jobs-company__box a'
   ];
   for (const sel of selectors) {
-    const node = document.querySelector(sel);
-    if (node) {
+    const nodes = container.querySelectorAll(sel);
+    for (const node of nodes) {
+      if (node.closest('.jobs-search-results-list, .jobs-search-results, .jobs-search-results-list__list-item')) continue;
       const company = (node.innerText || node.textContent || '').trim();
       if (company && company.length > 0) return company;
     }
   }
 
   // AI job search layout - company name from aria-label="Company, {name}."
-  const companyLabelEl = document.querySelector('[aria-label^="Company,"]');
-  if (companyLabelEl) {
+  const companyLabelEls = container.querySelectorAll('[aria-label^="Company,"]');
+  for (const companyLabelEl of companyLabelEls) {
+    if (companyLabelEl.closest('.jobs-search-results-list, .jobs-search-results, .jobs-search-results-list__list-item')) continue;
     const label = companyLabelEl.getAttribute('aria-label');
     const match = label.match(/^Company,\s*(.+?)\.?\s*$/);
     if (match && match[1]) return match[1].trim();
@@ -223,13 +231,14 @@ function extractCompanyName() {
   // Look for visible links that point to a company page, and pick the one nearest the top.
   try {
     const linkNodes = Array.from(
-      document.querySelectorAll(
+      container.querySelectorAll(
         'a[href*="linkedin.com/company/"], a[href^="https://www.linkedin.com/company/"], a[href^="/company/"]'
       )
     );
 
     let best = null;
     for (const link of linkNodes) {
+      if (link.closest('.jobs-search-results-list, .jobs-search-results, .jobs-search-results-list__list-item')) continue;
       const text = (link.innerText || link.textContent || '').trim();
       if (!text) continue;
 
@@ -250,6 +259,111 @@ function extractCompanyName() {
   }
 
   return null;
+}
+
+// Extract job location from DOM
+function extractLocation() {
+  const container = getDetailsContainer();
+  
+  // Get current company and title to prevent them from being identified as location
+  let companyName = '';
+  let jobTitle = '';
+  try {
+    companyName = (extractCompanyName() || '').trim().toLowerCase();
+    jobTitle = (extractJobTitle() || '').trim().toLowerCase();
+  } catch (e) {
+    // Ignore
+  }
+
+  // Helper to validate if a string is a valid location (and not time/applicant/other metadata)
+  const isValidLocation = (text) => {
+    if (!text) return false;
+    const clean = text.trim().toLowerCase();
+    if (companyName && clean === companyName) return false;
+    if (jobTitle && clean === jobTitle) return false;
+
+    if (text.match(/\b(ago|hours?|days?|weeks?|months?|posted|active|yesterday)\b/i)) return false;
+    if (text.match(/\b(applicants?|applied|people|clicked|views?|results?)\b/i)) return false;
+    if (text.match(/\b(employees|connections|work here|jobs?|company|match(es)?)\b/i)) return false;
+    if (text.match(/^(remote|hybrid|on-site)$/i)) return false;
+    return true;
+  };
+
+  const selectors = [
+    'p[class*="_52b33e66"]', // Hashed class in new layout
+    '.job-details-jobs-unified-top-card__primary-description-container',
+    '.job-details-jobs-unified-top-card__primary-description',
+    '.jobs-details-top-card__primary-description-without-tagline',
+    '.jobs-details-top-card__job-info',
+    '.job-search-card__location',
+    '.jobs-details-top-card__bullet',
+    'span.jobs-details-top-card__bullet',
+    'span.jobs-unified-top-card__bullet-point',
+    'span.jobs-details-top-card__bullet-point'
+  ];
+
+  for (const sel of selectors) {
+    const nodes = container.querySelectorAll(sel);
+    for (const node of nodes) {
+      if (node.closest('.jobs-search-results-list, .jobs-search-results, .jobs-search-results-list__list-item')) continue;
+      
+      // If it contains child spans (common in new layout), extract the first valid span text
+      const childSpans = node.querySelectorAll('span');
+      if (childSpans.length > 0) {
+        const spansText = Array.from(childSpans)
+          .map(s => s.innerText.trim())
+          .filter(t => t.length > 0 && !t.includes('·'));
+        if (spansText.length > 0 && isValidLocation(spansText[0])) {
+          return spansText[0];
+        }
+      }
+
+      // Otherwise parse full text
+      const fullText = (node.innerText || node.textContent || '').trim();
+      if (fullText) {
+        if (!fullText.includes('·') && !fullText.includes('•') && !fullText.includes('\n')) {
+          if (isValidLocation(fullText)) return fullText;
+        }
+
+        // Example: "Google · Mountain View, CA · 1 week ago" or "Company · Location · Posted"
+        const parts = fullText.split(/[·•\n]/).map(p => p.trim()).filter(Boolean);
+        if (parts.length > 1) {
+          // If first part is companyName, check second part (location)
+          if (isValidLocation(parts[1])) return parts[1];
+          // If first part is location itself
+          if (isValidLocation(parts[0])) return parts[0];
+        }
+      }
+    }
+  }
+
+  // Generic structural fallback: find any element containing the middle dot separator
+  const candidates = container.querySelectorAll('p, div, span');
+  for (const el of candidates) {
+    if (el.closest('.jobs-search-results-list, .jobs-search-results, .jobs-search-results-list__list-item')) continue;
+    const text = el.innerText || '';
+    if (text.includes('·')) {
+      const childSpans = el.querySelectorAll('span');
+      if (childSpans.length > 0) {
+        const spansText = Array.from(childSpans)
+          .map(s => s.innerText.trim())
+          .filter(t => t.length > 0 && !t.includes('·'));
+        if (spansText.length > 0 && isValidLocation(spansText[0])) {
+          return spansText[0];
+        }
+      }
+    }
+  }
+
+  // Fallback: look for any bullet point element that has a location look
+  const bulletPoints = container.querySelectorAll('.jobs-unified-top-card__bullet-point, .jobs-details-top-card__bullet-point, span.tvm__text--low-emphasis');
+  for (const bp of bulletPoints) {
+    if (bp.closest('.jobs-search-results-list, .jobs-search-results, .jobs-search-results-list__list-item')) continue;
+    const text = (bp.innerText || bp.textContent || '').trim();
+    if (isValidLocation(text)) return text;
+  }
+
+  return '';
 }
 
 // Save job scan result to storage
@@ -548,8 +662,19 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
   }
 
   if (msg.type === 'COPY_JOB_DESCRIPTION') {
-    const text = extractJobDescriptionText();
-    if (text) {
+    const jdText = extractJobDescriptionText();
+    if (jdText) {
+      const company = extractCompanyName() || '';
+      const title = extractJobTitle() || '';
+      const location = extractLocation() || '';
+
+      let header = '';
+      if (company) header += `${company}\n`;
+      if (title) header += `${title}\n`;
+      if (location) header += `${location}\n`;
+
+      const text = header ? `${header}\n${jdText}` : jdText;
+
       // Use a temporary textarea element to copy text (more reliable than clipboard API)
       const textarea = document.createElement('textarea');
       textarea.value = text;
@@ -1430,22 +1555,85 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c]));
 }
 
+function getDetailsContainer() {
+  const jdNode = findJobDescriptionNode();
+  if (jdNode) {
+    let el = jdNode.parentElement;
+    while (el && el !== document.body) {
+      // Find the ancestor that wraps both the description and the top card header.
+      // This stops exactly at the details wrapper and avoids walking up to main/body (which contain the sidebar).
+      if (el.querySelector('[aria-label^="Company,"], p[class*="_3293afb7"], .jobs-details-top-card__job-title, [data-test-id="job-details-title"]')) {
+        return el;
+      }
+      el = el.parentElement;
+    }
+
+    // Fallback: walk up to classic details panel classes
+    el = jdNode;
+    while (el && el !== document.body) {
+      if (el.matches('.jobs-search-two-pane__details, .jobs-details, [data-view-name="job-details"], .jobs-search-two-pane__job-details')) {
+        return el;
+      }
+      el = el.parentElement;
+    }
+
+    // Fallback: walk up 5 levels to get a shared ancestor
+    el = jdNode;
+    for (let i = 0; i < 5 && el && el.parentElement && el.parentElement !== document.body; i++) {
+      el = el.parentElement;
+    }
+    return el;
+  }
+
+  const selectors = [
+    '.jobs-search-two-pane__details',
+    '.jobs-details',
+    '[data-view-name="job-details"]'
+  ];
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el) return el;
+  }
+  return document;
+}
+
+function getAttachedNodeInnerText(node) {
+  if (!node) return '';
+  const banner = node.querySelector('.jl-results-banner');
+  let originalDisplay = '';
+  if (banner) {
+    originalDisplay = banner.style.display;
+    banner.style.display = 'none';
+  }
+
+  // Hide the expand/more buttons inside the job description node
+  const seeMoreBtn = node.querySelector('.jobs-description__footer-button, button[aria-label*="more"], button[class*="more"]');
+  let seeMoreOriginalDisplay = '';
+  if (seeMoreBtn) {
+    seeMoreOriginalDisplay = seeMoreBtn.style.display;
+    seeMoreBtn.style.display = 'none';
+  }
+
+  const text = node.innerText || '';
+
+  if (banner) {
+    banner.style.display = originalDisplay;
+  }
+  if (seeMoreBtn) {
+    seeMoreBtn.style.display = seeMoreOriginalDisplay;
+  }
+
+  return text
+    .replace(/\s*[…...]\s*more\s*$/i, '')
+    .replace(/\s*\b(show|see)\s*more\s*$/i, '')
+    .trim();
+}
+
 function extractJobDescriptionText() {
   const node = findJobDescriptionNode();
   if (!node) return '';
-
-  // Clone the node to avoid modifying the original
-  const clone = node.cloneNode(true);
-
-  // Remove banner and highlighted marks before extracting text
-  const banner = clone.querySelector('.jl-results-banner');
-  if (banner) banner.remove();
-  clone.querySelectorAll('mark.jl-mark').forEach(mark => {
-    const text = document.createTextNode(mark.textContent);
-    mark.replaceWith(text);
-  });
-
-  return (clone.innerText || clone.textContent || '').replace(/\n\s*\n/g, '\n\n').trim();
+  const text = getAttachedNodeInnerText(node);
+  return text.replace(/\n\s*\n/g, '\n\n').trim();
 }
 
 function extractJobDescriptionFromDOM(jobId) {
@@ -1467,18 +1655,7 @@ function extractJobDescriptionFromDOM(jobId) {
   // Extract description from the side panel or main content
   const jobDetailNode = findJobDescriptionNode();
   if (jobDetailNode) {
-    // Clone the node to avoid modifying the original
-    const clone = jobDetailNode.cloneNode(true);
-
-    // Remove banner and highlighted marks before extracting text
-    const banner = clone.querySelector('.jl-results-banner');
-    if (banner) banner.remove();
-    clone.querySelectorAll('mark.jl-mark').forEach(mark => {
-      const text = document.createTextNode(mark.textContent);
-      mark.replaceWith(text);
-    });
-
-    const text = clone.innerText || clone.textContent || '';
+    const text = getAttachedNodeInnerText(jobDetailNode);
     const trimmedText = text.trim();
     // Check for sufficient content and that it's not just loading placeholders
     if (trimmedText.length >= MIN_DESCRIPTION_LENGTH && !trimmedText.match(/^(loading|please wait)/i)) {
