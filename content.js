@@ -977,7 +977,8 @@ async function scanCurrentJob(forceRescan = false) {
         highlightedCustomMatches = [];
 
         highlightedResults.forEach(result => {
-          if (visaKeywordSet.has(result.key)) {
+          const keyLower = result.key.toLowerCase();
+          if (visaKeywordSet.has(keyLower)) {
             const existing = highlightedVisaMatches.find(m => m.key === keyLower);
             if (existing) {
               existing.anchors.push(...result.anchors);
@@ -994,9 +995,9 @@ async function scanCurrentJob(forceRescan = false) {
           }
         });
 
-        // Merge regex matches (not highlighted in DOM but should appear in results)
-        mergeRegexIntoHighlighted(visaMatches, highlightedVisaMatches);
-        mergeRegexIntoHighlighted(customMatches, highlightedCustomMatches);
+        // Merge all scan matches (including regexes and matches only found in the title)
+        mergeScanMatchesIntoHighlighted(visaMatches, highlightedVisaMatches);
+        mergeScanMatchesIntoHighlighted(customMatches, highlightedCustomMatches);
 
         // Insert results banner at the start of job description
         insertResultsBanner(jdNode, highlightedVisaMatches, highlightedCustomMatches);
@@ -1058,13 +1059,14 @@ async function scanCurrentJob(forceRescan = false) {
     const jobTitle = extractJobTitle();
     const companyName = extractCompanyName();
 
-    // Scan the description with both keyword lists in single pass
+    // Scan the title and description with both keyword lists in single pass
     const visaKws = currentVisaKeywords || DEFAULT_VISA_KEYWORDS;
     const customKws = currentCustomKeywords || [];
     const allKeywords = [...visaKws, ...customKws];
 
-    // Single pass scan
-    const allMatches = scanTextForKeywords(description, allKeywords);
+    // Single pass scan (unified context of title + description)
+    const scanText = (jobTitle ? jobTitle + "\n\n" : "") + description;
+    const allMatches = scanTextForKeywords(scanText, allKeywords);
 
     // Categorize matches into visa and custom
     const visaKeywordSet = new Set(visaKws.map(k => parseKeyword(k).key));
@@ -1136,9 +1138,9 @@ async function scanCurrentJob(forceRescan = false) {
         }
       });
 
-      // Merge regex matches (not highlighted in DOM but should appear in results)
-      mergeRegexIntoHighlighted(visaMatches, highlightedVisaMatches);
-      mergeRegexIntoHighlighted(customMatches, highlightedCustomMatches);
+      // Merge all scan matches (including regexes and matches only found in the title)
+      mergeScanMatchesIntoHighlighted(visaMatches, highlightedVisaMatches);
+      mergeScanMatchesIntoHighlighted(customMatches, highlightedCustomMatches);
 
       // Insert results banner at the start of job description
       insertResultsBanner(jdNode, highlightedVisaMatches, highlightedCustomMatches);
@@ -1356,7 +1358,10 @@ async function autoScanJob(jobId) {
       const visaKws = currentVisaKeywords || DEFAULT_VISA_KEYWORDS;
       const customKws = currentCustomKeywords || [];
       const allKeywords = [...visaKws, ...customKws];
-      const allMatches = scanTextForKeywords(description, allKeywords);
+      
+      // Single pass scan (unified context of title + description)
+      const scanText = (jobTitle ? jobTitle + "\n\n" : "") + description;
+      const allMatches = scanTextForKeywords(scanText, allKeywords);
 
       // Categorize matches
       const visaKeywordSet = new Set(visaKws.map(k => parseKeyword(k).key));
@@ -1992,19 +1997,20 @@ function addResult(results, key, anchorId) {
 }
 
 /**
- * Merge regex matches from scan into highlighted results for panel display.
- * Regex matches don't get DOM highlights but should appear in panel/banner.
- * @param {Array} scanMatches - Full scan results (may include regex matches)
- * @param {Array} highlightedMatches - Highlighted results (literal only, modified in-place)
+ * Merge scan matches (literals and regexes) into highlighted results.
+ * Matches that are not highlighted in DOM (e.g., regexes or title-only matches)
+ * should still appear in the panel/banner results.
+ * @param {Array} scanMatches - Full scan results (including regex and title-only matches)
+ * @param {Array} highlightedMatches - Highlighted results (modified in-place)
  */
-function mergeRegexIntoHighlighted(scanMatches, highlightedMatches) {
+function mergeScanMatchesIntoHighlighted(scanMatches, highlightedMatches) {
   if (!scanMatches || !highlightedMatches) return;
   scanMatches.forEach(match => {
-    const parsed = parseKeyword(match.key);
-    if (parsed.type !== 'regex') return;
-    const existing = highlightedMatches.find(m => m.key === match.key);
+    const existing = highlightedMatches.find(m => m.key.toLowerCase() === match.key.toLowerCase());
     if (!existing) {
       highlightedMatches.push({ key: match.key, count: match.count, anchors: [] });
+    } else {
+      existing.count = match.count;
     }
   });
 }

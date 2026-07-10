@@ -59,7 +59,7 @@ function showNotification(message, type = 'info', duration = 3000) {
 
   const notification = document.createElement('div');
   notification.className = `jl-notification jl-notification--${type}`;
-  notification.innerHTML = escapeHtml(message);
+  notification.textContent = message;
   notification.style.cssText = `
     position: fixed;
     top: 20px;
