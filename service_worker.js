@@ -28,10 +28,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (tabId) {
           // Include tabId in the payload so content script knows which tab it's for
           const payload = { ...msg.payload, tabId };
-          chrome.tabs.sendMessage(tabId, payload);
+          chrome.tabs.sendMessage(tabId, payload, (response) => {
+            if (chrome.runtime.lastError) {
+              sendResponse({ error: chrome.runtime.lastError.message });
+            } else {
+              sendResponse(response);
+            }
+          });
+        } else {
+          sendResponse({ error: 'No active tab' });
         }
       });
-      return;
+      return true; // async response
     }
 
     // Get current tab ID for content scripts

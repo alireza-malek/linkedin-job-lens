@@ -25,7 +25,7 @@ let currentTabId = null; // Track current tab ID
 
 // Constants
 const MAX_CONCURRENT_AUTO_SCANS = 2;
-const MAX_STORED_JOBS = 1000;
+const MAX_STORED_JOBS = 3000;
 const SCAN_DEBOUNCE_MS = 1000;
 const URL_SCAN_RESET_MS = 5000;
 const INITIAL_LOAD_DELAY_MS = 1000;
@@ -136,8 +136,11 @@ window.addEventListener('popstate', checkUrlChange);
 // STORAGE MANAGEMENT
 // ============================================================================
 
-// Unified storage key for job scan results
+// Unified storage keys for job scan results & AI
 const STORAGE_KEY_JOB_RESULTS = 'jl_job_scan_results';
+const STORAGE_KEY_TEMPLATES = 'jl_templates';
+const STORAGE_KEY_ACTIVE_TEMPLATE = 'jl_active_template';
+const STORAGE_KEY_AI_SETTINGS = 'jl_ai_settings';
 
 // Extract job title from DOM
 function extractJobTitle() {
@@ -264,7 +267,7 @@ function extractCompanyName() {
 // Extract job location from DOM
 function extractLocation() {
   const container = getDetailsContainer();
-  
+
   // Get current company and title to prevent them from being identified as location
   let companyName = '';
   let jobTitle = '';
@@ -306,7 +309,7 @@ function extractLocation() {
     const nodes = container.querySelectorAll(sel);
     for (const node of nodes) {
       if (node.closest('.jobs-search-results-list, .jobs-search-results, .jobs-search-results-list__list-item')) continue;
-      
+
       // If it contains child spans (common in new layout), extract the first valid span text
       const childSpans = node.querySelectorAll('span');
       if (childSpans.length > 0) {
@@ -370,17 +373,19 @@ function extractLocation() {
 async function saveJobScanResult(jobId, description, visaMatches, customMatches, jobTitle, companyName) {
   return new Promise((resolve, reject) => {
     try {
-      const result = {
-        jobTitle: jobTitle || null,
-        companyName: companyName || null,
-        visaMatches: visaMatches.map(m => ({ key: m.key, count: m.count })),
-        customMatches: customMatches.map(m => ({ key: m.key, count: m.count })),
-        scannedAt: Date.now()
-      };
-
       chrome.storage.local.get([STORAGE_KEY_JOB_RESULTS], (data) => {
         const results = data[STORAGE_KEY_JOB_RESULTS] || {};
-        results[jobId] = result;
+        const existing = results[jobId] || {};
+        results[jobId] = {
+          jobId,
+          jobTitle: jobTitle || existing.jobTitle || null,
+          companyName: companyName || existing.companyName || null,
+          location: extractLocation() || existing.location || null,
+          visaMatches: visaMatches.map(m => ({ key: m.key, count: m.count })),
+          customMatches: customMatches.map(m => ({ key: m.key, count: m.count })),
+          scannedAt: Date.now(),
+          aiInsights: Array.isArray(existing.aiInsights) ? existing.aiInsights : []
+        };
         // Keep only last N jobs to avoid storage limits
         const entries = Object.entries(results);
         if (entries.length > MAX_STORED_JOBS) {
@@ -514,7 +519,7 @@ function init() {
     setTimeout(checkInitialJob, 2000);
   });
 
-  // Listen for storage changes to reload keywords
+  // Listen for storage changes to reload keywords and in-page AI
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === 'sync') {
       if (changes.visaKeywords) {
@@ -528,6 +533,13 @@ function init() {
       if (changes.customKeywords) {
         const newKeywords = changes.customKeywords.newValue;
         currentCustomKeywords = normalizeKeywords(Array.isArray(newKeywords) ? newKeywords : []);
+      }
+    }
+    if (areaName === 'local') {
+      if (changes[STORAGE_KEY_JOB_RESULTS] || changes[STORAGE_KEY_TEMPLATES] || changes[STORAGE_KEY_ACTIVE_TEMPLATE]) {
+        if (typeof refreshInPageAISection === 'function') {
+          refreshInPageAISection();
+        }
       }
     }
   });
@@ -659,6 +671,22 @@ chrome.runtime.onMessage.addListener(async (msg, sender, sendResponse) => {
 
   if (msg.type === 'SAVE_JOB' && msg.jobId) {
     // Jobs are automatically saved when scanned
+  }
+
+  if (msg.type === 'GET_CURRENT_JOB_DETAILS') {
+    const jdText = extractJobDescriptionText();
+    const company = extractCompanyName() || '';
+    const title = extractJobTitle() || '';
+    const location = extractLocation() || '';
+    const urlJobId = extractJobIdFromUrl();
+    sendResponse({
+      jobId: urlJobId || null,
+      jobTitle: title || null,
+      companyName: company || null,
+      location: location || null,
+      description: jdText || ''
+    });
+    return true;
   }
 
   if (msg.type === 'COPY_JOB_DESCRIPTION') {
@@ -959,11 +987,14 @@ async function scanCurrentJob(forceRescan = false) {
       let highlightedCustomMatches = customMatches;
 
       if (jdNode) {
+        // Expand job description if collapsed with "...more"
+        expandJobDescription();
+
         // Always unhighlight first to clear any previous highlights
         unhighlight(jdNode);
 
-        // Remove any existing banner before creating new one
-        const existingBanner = jdNode.querySelector('.jl-results-banner');
+        // Remove any existing in-page lens container before creating new one
+        const existingBanner = jdNode.querySelector('.jl-job-page-container, .jl-results-banner');
         if (existingBanner) {
           existingBanner.remove();
         }
@@ -1000,13 +1031,15 @@ async function scanCurrentJob(forceRescan = false) {
         mergeScanMatchesIntoHighlighted(customMatches, highlightedCustomMatches);
 
         // Insert results banner at the start of job description
-        insertResultsBanner(jdNode, highlightedVisaMatches, highlightedCustomMatches);
+        insertResultsBanner(jdNode, highlightedVisaMatches, highlightedCustomMatches, jobId);
       }
 
       chrome.runtime.sendMessage({
         type: 'CONTENT_RESULTS',
         data: {
           hasJD: !!jdNode && ((jdNode.innerText || jdNode.textContent || '').trim().length > 0),
+          description: extractJobDescriptionText(),
+          location: extractLocation() || null,
           visaMatches: highlightedVisaMatches.map(m => ({ key: m.key, count: m.count, anchors: m.anchors || [] })),
           customMatches: highlightedCustomMatches.map(m => ({ key: m.key, count: m.count, anchors: m.anchors || [] })),
           jobTitle: cached.jobTitle || null,
@@ -1035,8 +1068,14 @@ async function scanCurrentJob(forceRescan = false) {
   }
 
   try {
+    // Expand the job description if "...more" button is available
+    expandJobDescription();
+
     // Wait for job description to load
     await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Try expanding again in case it just rendered
+    expandJobDescription();
 
     const description = extractJobDescriptionFromDOM(jobId);
     if (!description || description.trim().length < MIN_DESCRIPTION_LENGTH) {
@@ -1103,11 +1142,14 @@ async function scanCurrentJob(forceRescan = false) {
     let highlightedCustomMatches = customMatches;
 
     if (jdNode) {
+      // Ensure description is expanded before highlighting matches
+      expandJobDescription();
+
       // Always unhighlight first to clear any previous highlights
       unhighlight(jdNode);
 
-      // Remove any existing banner before creating new one
-      const existingBanner = jdNode.querySelector('.jl-results-banner');
+      // Remove any existing in-page lens container before creating new one
+      const existingBanner = jdNode.querySelector('.jl-job-page-container, .jl-results-banner');
       if (existingBanner) {
         existingBanner.remove();
       }
@@ -1143,7 +1185,7 @@ async function scanCurrentJob(forceRescan = false) {
       mergeScanMatchesIntoHighlighted(customMatches, highlightedCustomMatches);
 
       // Insert results banner at the start of job description
-      insertResultsBanner(jdNode, highlightedVisaMatches, highlightedCustomMatches);
+      insertResultsBanner(jdNode, highlightedVisaMatches, highlightedCustomMatches, jobId);
     }
 
     // Send results to panel
@@ -1151,6 +1193,8 @@ async function scanCurrentJob(forceRescan = false) {
       type: 'CONTENT_RESULTS',
       data: {
         hasJD: !!jdNode && ((jdNode.innerText || jdNode.textContent || '').trim().length > 0),
+        description: extractJobDescriptionText(),
+        location: extractLocation() || null,
         visaMatches: highlightedVisaMatches.map(m => ({ key: m.key, count: m.count, anchors: m.anchors || [] })),
         customMatches: highlightedCustomMatches.map(m => ({ key: m.key, count: m.count, anchors: m.anchors || [] })),
         jobTitle: jobTitle || null,
@@ -1358,7 +1402,7 @@ async function autoScanJob(jobId) {
       const visaKws = currentVisaKeywords || DEFAULT_VISA_KEYWORDS;
       const customKws = currentCustomKeywords || [];
       const allKeywords = [...visaKws, ...customKws];
-      
+
       // Single pass scan (unified context of title + description)
       const scanText = (jobTitle ? jobTitle + "\n\n" : "") + description;
       const allMatches = scanTextForKeywords(scanText, allKeywords);
@@ -1404,8 +1448,78 @@ async function autoScanJob(jobId) {
 }
 
 // ============================================================================
-// JOB DESCRIPTION EXTRACTION
+// JOB DESCRIPTION EXTRACTION & AUTO-EXPAND
 // ============================================================================
+
+/**
+ * Automatically clicks the "...more" / "see more" button to expand the full job description.
+ * Supports classic LinkedIn layout and newer expandable layouts.
+ * @returns {boolean} True if an expand button was found and clicked
+ */
+function expandJobDescription() {
+  try {
+    const jdNode = findJobDescriptionNode();
+    if (!jdNode) return false;
+
+    // Search strictly within the job description node or its immediate parent paragraph/container
+    const candidateContainers = [jdNode];
+    if (jdNode.parentElement && (jdNode.tagName === 'SPAN' || jdNode.id === 'job-details' || jdNode.classList.contains('jobs-description__container'))) {
+      candidateContainers.push(jdNode.parentElement);
+    }
+
+    for (const container of candidateContainers) {
+      // 1. Specific known button classes strictly inside job description
+      const specificBtn = container.querySelector(
+        '.jobs-description__footer-button, ' +
+        'button.jobs-description-content__button, ' +
+        'button[data-testid="expandable-text-button"]'
+      );
+
+      if (specificBtn && (specificBtn.offsetParent !== null || specificBtn.offsetWidth > 0)) {
+        const label = (specificBtn.getAttribute('aria-label') || '').toLowerCase();
+        const text = (specificBtn.innerText || specificBtn.textContent || '').trim().toLowerCase();
+        if (!label.includes('less') && !text.includes('less') && specificBtn.getAttribute('aria-expanded') !== 'true') {
+          specificBtn.click();
+          return true;
+        }
+      }
+
+      // 2. Fallback: Search ONLY <button> elements strictly inside this job description container
+      const buttons = container.querySelectorAll('button');
+      for (const btn of buttons) {
+        // Never click dropdown triggers, menus, or links
+        if (btn.matches('[aria-haspopup], [aria-label*="action" i], [class*="dropdown"], [class*="overflow"]')) continue;
+
+        const isVisible = btn.offsetParent !== null || (btn.offsetWidth > 0 && btn.offsetHeight > 0);
+        if (!isVisible) continue;
+
+        const text = (btn.innerText || btn.textContent || '').trim().toLowerCase();
+        const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+
+        if (text.includes('less') || aria.includes('less')) continue;
+        if (btn.getAttribute('aria-expanded') === 'true') continue;
+
+        // Must match "...more" or "see more" specifically
+        if (
+          text === '...more' ||
+          text === '…more' ||
+          text === 'see more' ||
+          text.startsWith('...more') ||
+          text.startsWith('…more') ||
+          aria === 'see more' ||
+          aria === 'see more details'
+        ) {
+          btn.click();
+          return true;
+        }
+      }
+    }
+  } catch (e) {
+    console.debug('expandJobDescription error:', e);
+  }
+
+  return false;
+}
 
 function findJobDescriptionNode() {
   // Primary selectors – older LinkedIn layouts
@@ -1444,8 +1558,66 @@ function findJobDescriptionNode() {
   return null;
 }
 
-// Insert results banner at the start of job description
-function insertResultsBanner(jdNode, visaMatches, customMatches) {
+// ============================================================================
+// IN-PAGE LATEST AI INSIGHT DISPLAY (Read-Only)
+// ============================================================================
+
+function refreshInPageAISection(targetJobId = null) {
+  const container = document.querySelector('.jl-job-page-ai-col');
+  if (!container) return;
+
+  const renderEmptyCard = () => {
+    container.innerHTML = '';
+    const emptyCard = document.createElement('div');
+    emptyCard.className = 'ai-slot-card ai-slot-card--empty';
+    emptyCard.style.cssText = 'padding: 13px 12px; text-align: center; color: var(--color-text-secondary); font-size: 12px; border: 1px dashed var(--color-border-default); background: transparent; box-shadow: none; border-radius: 8px;';
+    emptyCard.innerHTML = `
+      <div style="font-size: 16px; margin-bottom: 3px;">✨</div>
+      <div style="font-size: 11px; color: var(--color-text-muted);">No AI insight yet</div>
+    `;
+    container.appendChild(emptyCard);
+  };
+
+  const currentJobId = targetJobId || extractJobIdFromUrl() || lastActiveJobId || document.querySelector('[data-job-id].jobs-search-results-list__list-item--active, [data-job-id][aria-current="page"]')?.getAttribute('data-job-id');
+  if (!currentJobId) {
+    renderEmptyCard();
+    return;
+  }
+
+  chrome.storage.local.get([STORAGE_KEY_JOB_RESULTS], (data) => {
+    const allJobs = data[STORAGE_KEY_JOB_RESULTS] || {};
+    const job = allJobs[currentJobId] || allJobs[String(currentJobId)] || (typeof currentJobId === 'string' ? allJobs[currentJobId.trim()] : null);
+    const aiInsights = (job && Array.isArray(job.aiInsights)) ? job.aiInsights : [];
+
+    // Panel prepends newest insight at index 0 (unshift).
+    // Sort by timestamp descending or default to index 0 so the latest run is always shown.
+    let latestInsight = null;
+    if (aiInsights.length > 0) {
+      latestInsight = aiInsights.reduce((latest, current) => {
+        if (!latest) return current;
+        const latestTs = typeof latest.timestamp === 'number' ? latest.timestamp : 0;
+        const currentTs = typeof current.timestamp === 'number' ? current.timestamp : 0;
+        return currentTs >= latestTs ? current : latest;
+      }, aiInsights[0]);
+    }
+
+    if (!latestInsight) {
+      renderEmptyCard();
+      return;
+    }
+
+    container.innerHTML = '';
+    if (window.JobLensUI && typeof window.JobLensUI.createAISlotCardElement === 'function') {
+      const card = window.JobLensUI.createAISlotCardElement(latestInsight);
+      container.appendChild(card);
+    } else {
+      renderEmptyCard();
+    }
+  });
+}
+
+// Insert in-page section (AI Assistant on Left, Keywords Found on Right)
+function insertResultsBanner(jdNode, visaMatches, customMatches, jobId = null) {
   // Determine where the banner should live.
   // NEW LinkedIn layout:
   //  - The description text lives inside a span[data-testid="expandable-text-box"].
@@ -1465,24 +1637,20 @@ function insertResultsBanner(jdNode, visaMatches, customMatches) {
     insertBeforeNode = paragraph;
   }
 
-  // Remove existing banner if present
-  const existingBanner = bannerRoot.querySelector('.jl-results-banner');
-  if (existingBanner) {
-    existingBanner.remove();
+  // Remove existing in-page container if present
+  const existingContainer = bannerRoot.querySelector('.jl-job-page-container, .jl-results-banner');
+  if (existingContainer) {
+    existingContainer.remove();
   }
 
-  const visaTotal = visaMatches.reduce((sum, m) => sum + m.count, 0);
-  const customTotal = customMatches.reduce((sum, m) => sum + m.count, 0);
+  const currentJobId = jobId || extractJobIdFromUrl() || lastActiveJobId || document.querySelector('[data-job-id].jobs-search-results-list__list-item--active, [data-job-id][aria-current="page"]')?.getAttribute('data-job-id');
 
-  // Only show banner if there are matches
-  if (visaTotal === 0 && customTotal === 0) return;
-
-  const banner = document.createElement('div');
-  banner.className = 'jl-results-banner';
+  const visaTotal = (visaMatches || []).reduce((sum, m) => sum + m.count, 0);
+  const customTotal = (customMatches || []).reduce((sum, m) => sum + m.count, 0);
 
   // Build custom keywords list with anchors
   const customKeywordsList = [];
-  customMatches.forEach(m => {
+  (customMatches || []).forEach(m => {
     for (let i = 0; i < m.count; i++) {
       const anchorId = m.anchors && m.anchors[i] ? m.anchors[i] : null;
       customKeywordsList.push({ keyword: m.key, anchorId });
@@ -1491,63 +1659,59 @@ function insertResultsBanner(jdNode, visaMatches, customMatches) {
 
   // Build visa keywords list with anchors
   const visaKeywordsList = [];
-  visaMatches.forEach(m => {
+  (visaMatches || []).forEach(m => {
     for (let i = 0; i < m.count; i++) {
       const anchorId = m.anchors && m.anchors[i] ? m.anchors[i] : null;
       visaKeywordsList.push({ keyword: m.key, anchorId });
     }
   });
 
-  banner.innerHTML = `
-    <div class="jl-banner-content">
-      <div class="jl-banner-title-row">🔍 Keywords Found 🔍</div>
-      ${customTotal > 0 ? `
-        <div class="jl-banner-row">
-          <span class="jl-banner-label">Matches:</span>
-          <span class="jl-banner-keywords">
-            ${customKeywordsList.map((item, idx) => {
-    return `<span class="jl-banner-keyword" data-anchor-id="${item.anchorId || ''}" data-keyword-index="${idx}">${escapeHtml(item.keyword)}</span>`;
-  }).join(' ')}
-          </span>
-        </div>
-      ` : ''}
-      ${visaTotal > 0 ? `
-        <div class="jl-banner-row">
-          <span class="jl-banner-label">Visa:</span>
-          <span class="jl-banner-keywords">
-            ${visaKeywordsList.map((item, idx) => {
-    return `<span class="jl-banner-keyword" data-anchor-id="${item.anchorId || ''}" data-keyword-index="${idx}">${escapeHtml(item.keyword)}</span>`;
-  }).join(' ')}
-          </span>
-        </div>
-      ` : ''}
-    </div>
-  `;
+  // Main container (2-column layout: Keywords Left, AI Right)
+  const pageContainer = document.createElement('div');
+  pageContainer.className = 'jl-job-page-container';
 
-  // Insert at the beginning of the job description container.
-  // For the new layout we insert before the <p> that holds the span,
-  // otherwise we insert as the first child of the root node.
+  // ----------------------------------------------------
+  // RIGHT COLUMN: Latest AI Insight Card (Read-Only)
+  // ----------------------------------------------------
+  const aiCol = document.createElement('div');
+  aiCol.className = 'jl-job-page-ai-col';
+
+  // ----------------------------------------------------
+  // LEFT COLUMN: Keywords Found Card (Reused UI Component)
+  // ----------------------------------------------------
+  const kwCol = document.createElement('div');
+  kwCol.className = 'jl-job-page-keywords-col';
+
+  const kwCard = (window.JobLensUI && window.JobLensUI.createKeywordsCardElement)
+    ? window.JobLensUI.createKeywordsCardElement({
+      visaTotal,
+      customTotal,
+      visaKeywordsList,
+      customKeywordsList,
+      onScrollToMatch: (anchorId) => {
+        const targetEl = document.getElementById(anchorId);
+        if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    })
+    : document.createElement('div');
+
+  kwCol.appendChild(kwCard);
+
+  // Combine columns (Left: Keywords, Right: AI Assistant)
+  pageContainer.appendChild(kwCol);
+  pageContainer.appendChild(aiCol);
+
+  // Insert at the beginning of the job description container
   if (insertBeforeNode && insertBeforeNode.parentNode === bannerRoot) {
-    bannerRoot.insertBefore(banner, insertBeforeNode);
+    bannerRoot.insertBefore(pageContainer, insertBeforeNode);
   } else if (bannerRoot.firstChild) {
-    bannerRoot.insertBefore(banner, bannerRoot.firstChild);
+    bannerRoot.insertBefore(pageContainer, bannerRoot.firstChild);
   } else {
-    bannerRoot.appendChild(banner);
+    bannerRoot.appendChild(pageContainer);
   }
 
-  // Attach click handlers after insertion (to avoid CSP issues)
-  banner.querySelectorAll('.jl-banner-keyword[data-anchor-id]').forEach(keywordEl => {
-    const anchorId = keywordEl.getAttribute('data-anchor-id');
-    if (anchorId) {
-      keywordEl.style.cursor = 'pointer';
-      keywordEl.addEventListener('click', () => {
-        const targetEl = document.getElementById(anchorId);
-        if (targetEl) {
-          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      });
-    }
-  });
+  // Populate latest AI insight into the right column
+  refreshInPageAISection(currentJobId);
 }
 
 /**
@@ -1604,7 +1768,7 @@ function getDetailsContainer() {
 
 function getAttachedNodeInnerText(node) {
   if (!node) return '';
-  const banner = node.querySelector('.jl-results-banner');
+  const banner = node.querySelector('.jl-job-page-container, .jl-results-banner');
   let originalDisplay = '';
   if (banner) {
     originalDisplay = banner.style.display;
@@ -1635,6 +1799,7 @@ function getAttachedNodeInnerText(node) {
 }
 
 function extractJobDescriptionText() {
+  expandJobDescription();
   const node = findJobDescriptionNode();
   if (!node) return '';
   const text = getAttachedNodeInnerText(node);
@@ -1656,6 +1821,9 @@ function extractJobDescriptionFromDOM(jobId) {
   if (urlJobId !== jobId && !isActiveInPanel) {
     return null;
   }
+
+  // Ensure any "...more" button is expanded before extracting text
+  expandJobDescription();
 
   // Extract description from the side panel or main content
   const jobDetailNode = findJobDescriptionNode();

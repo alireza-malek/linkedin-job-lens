@@ -1,109 +1,194 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>LinkedIn Job Lens</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <header>
-      <h1>LinkedIn Job Lens</h1>
-    </header>
 
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LinkedIn Job Lens</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <!-- Top Header -->
+  <header>
+    <h1>LinkedIn Job Lens</h1>
+    <div class="header-actions">
+      <button id="templatesNavBtn" class="btn btn-small icon-btn" title="AI Insight Templates">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M3 2.5C3 1.94772 3.44772 1.5 4 1.5H10L13.5 5V13.5C13.5 14.0523 13.0523 14.5 12.5 14.5H4C3.44772 14.5 3 14.0523 3 13.5V2.5Z"
+            stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M9.5 1.5V5.5H13.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"
+            stroke-linejoin="round" />
+          <path d="M5.5 8H10.5M5.5 11H8.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+        </svg>
+      </button>
+      <button id="settingsNavBtn" class="btn btn-small icon-btn" title="Settings">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M6.86 1.83a1.33 1.33 0 0 1 2.28 0l.37.64a1.33 1.33 0 0 0 1.48.61l.72-.2a1.33 1.33 0 0 1 1.61 1.61l-.2.72a1.33 1.33 0 0 0 .61 1.48l.64.37a1.33 1.33 0 0 1 0 2.28l-.64.37a1.33 1.33 0 0 0-.61 1.48l.2.72a1.33 1.33 0 0 1-1.61 1.61l-.72-.2a1.33 1.33 0 0 0-1.48.61l-.37.64a1.33 1.33 0 0 1-2.28 0l-.37-.64a1.33 1.33 0 0 0-1.48-.61l-.72.2a1.33 1.33 0 0 1-1.61-1.61l.2-.72a1.33 1.33 0 0 0-.61-1.48l-.64-.37a1.33 1.33 0 0 1 0-2.28l.64-.37a1.33 1.33 0 0 0 .61-1.48l-.2-.72a1.33 1.33 0 0 1 1.61-1.61l.72.2a1.33 1.33 0 0 0 1.48-.61l.37-.64Z"
+            stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" />
+          <circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.2" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main View (Tabs & Core Tools) -->
+  <div id="mainView" class="view-container active-view">
     <!-- Tab Navigation -->
-    <div class="tabs">
+    <div id="tabNav" class="tabs">
       <button class="tab-btn active" data-tab="scan">Scan</button>
       <button class="tab-btn" data-tab="saved">Scanned Jobs</button>
     </div>
 
     <!-- Scan Tab Content -->
     <div id="scanTab" class="tab-content active">
-      <div class="container">
-        <!-- Action Buttons -->
+      <div class="container scrollable-container">
+        <!-- Action Buttons (3 Items in one row) -->
         <div class="action-buttons">
-          <button id="fullListScan" class="btn btn-primary">
-            Start Auto-Scan List
+          <button id="fullListScan" class="btn btn-primary action-btn" title="Start Auto-Scan on LinkedIn Jobs List">
+            Auto-Scan List
           </button>
-          <button id="rescan" class="btn btn-secondary">Re-scan Job</button>
+          <button id="rescan" class="btn btn-secondary action-btn" title="Re-scan current job">
+            Re-scan Job
+          </button>
+          <label id="autoAiToggleBtn" class="btn btn-toggle-card action-btn" for="autoAiCheckbox"
+            title="Auto-run AI insight when a job is opened">
+            <input type="checkbox" id="autoAiCheckbox" />
+            <span class="auto-ai-label-text">Auto AI</span>
+          </label>
         </div>
 
-        <!-- Visa Keywords Section -->
-        <div class="kw-box">
-          <div class="kw-box-header" data-toggle="visa">
-            <h3 class="kw-section-title">Visa Keywords</h3>
-            <span class="kw-toggle" id="visaToggle">▶</span>
-          </div>
-          <div id="visaKwContent" class="kw-content search-input-hidden">
-            <div class="kw-row">
-              <input
-                id="visaKwInput"
-                class="kw-input"
-                placeholder="Add keyword… e.g. Visa, H1B or /regex/"
-              />
-              <button id="addVisaKw" class="btn btn-small">Add</button>
-            </div>
-            <div id="visaKwChips" class="kw-row"></div>
-          </div>
-        </div>
 
-        <!-- Custom Keywords Section -->
-        <div class="kw-box">
-          <div class="kw-box-header" data-toggle="custom">
-            <h3 class="kw-section-title">Custom Keywords</h3>
-            <span class="kw-toggle" id="customToggle">▶</span>
-          </div>
-          <div id="customKwContent" class="kw-content search-input-hidden">
-            <div class="kw-row">
-              <input
-                id="customKwInput"
-                class="kw-input"
-                placeholder="Add custom keyword… e.g. React or /regex/"
-              />
-              <button id="addCustomKw" class="btn btn-small">Add</button>
-            </div>
-            <div id="customKwChips" class="kw-row"></div>
-          </div>
-        </div>
 
         <!-- Separator -->
         <div class="separator"></div>
 
-        <!-- Copy button appears only when JD is present -->
-        <div id="jobTitleContainer" class="job-title-container">
-          <h3 id="jobTitleDisplay" class="job-title-display"></h3>
-          <div id="companyNameDisplay" class="company-name"></div>
+        <!-- Job Details Header Card (Title, Company, Location, Copy Button) -->
+        <div id="jobTitleContainer" class="job-header-card search-input-hidden">
+          <div class="job-header-top">
+            <h3 id="jobTitleDisplay" class="job-title-display"></h3>
+          </div>
+          <div class="job-header-bottom">
+            <div class="job-header-meta">
+              <div class="job-meta-row">
+                <span id="companyNameDisplay" class="job-meta-company"></span>
+              </div>
+              <div class="job-meta-row">
+                <span id="locationDisplay" class="job-meta-location search-input-hidden">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    class="location-icon">
+                    <path
+                      d="M8 1.5C5.51472 1.5 3.5 3.51472 3.5 6C3.5 9.5 8 14.5 8 14.5C8 14.5 12.5 9.5 12.5 6C12.5 3.51472 10.4853 1.5 8 1.5Z"
+                      stroke="currentColor" stroke-width="1.2" />
+                    <circle cx="8" cy="6" r="1.75" stroke="currentColor" stroke-width="1.2" />
+                  </svg>
+                  <span id="locationText"></span>
+                </span>
+              </div>
+              <span id="jobMetaDot" class="job-meta-dot search-input-hidden" style="display:none;">•</span>
+            </div>
+            <button id="copyJD" class="btn btn-small copy-jd-btn" type="button"
+              title="Copy job description to clipboard">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
+                class="copy-icon">
+                <path
+                  d="M5.5 2.5H11.5C12.0523 2.5 12.5 2.94772 12.5 3.5V9.5C12.5 10.0523 12.0523 10.5 11.5 10.5H9.5V12.5C9.5 13.0523 9.05228 13.5 8.5 13.5H2.5C1.94772 13.5 1.5 13.0523 1.5 12.5V6.5C1.5 5.94772 1.94772 5.5 2.5 5.5H4.5V3.5C4.5 2.94772 4.94772 2.5 5.5 2.5Z"
+                  stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M4.5 5.5H8.5C9.05228 5.5 9.5 5.94772 9.5 6.5V10.5" stroke="currentColor" stroke-width="1.2"
+                  stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <span class="copy-jd-btn-text">
+                <span>Copy Job</span>
+                <span>Description</span>
+              </span>
+            </button>
+          </div>
         </div>
-        <button id="copyJD" class="btn btn-block search-input-hidden">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            class="copy-icon"
-          >
-            <path
-              d="M5.5 2.5H11.5C12.0523 2.5 12.5 2.94772 12.5 3.5V9.5C12.5 10.0523 12.0523 10.5 11.5 10.5H9.5V12.5C9.5 13.0523 9.05228 13.5 8.5 13.5H2.5C1.94772 13.5 1.5 13.0523 1.5 12.5V6.5C1.5 5.94772 1.94772 5.5 2.5 5.5H4.5V3.5C4.5 2.94772 4.94772 2.5 5.5 2.5Z"
-              stroke="currentColor"
-              stroke-width="1.2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M4.5 5.5H8.5C9.05228 5.5 9.5 5.94772 9.5 6.5V10.5"
-              stroke="currentColor"
-              stroke-width="1.2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          Copy Job Description
-        </button>
 
         <!-- Matches -->
         <div id="summary" class="totals">Scanning…</div>
         <div id="matchList" class="match-list"></div>
+
+        <!-- AI Insight Section -->
+        <div id="aiInsightSection" class="ai-insight-section search-input-hidden">
+          <div class="ai-section-divider">
+            <span class="ai-divider-text">AI Assistant</span>
+          </div>
+
+          <!-- AI Action Group (Grouped Seamless Layout) -->
+          <div class="ai-control-group">
+            <!-- Tier 1: Template Selector Bar -->
+            <div class="ai-template-selector-bar">
+              <!-- Subtle 3-dots Menu on left-end -->
+              <div class="ai-template-menu-wrapper">
+                <button id="templateMenuBtn" class="ai-template-menu-btn" type="button" title="Template options">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                    <circle cx="8" cy="3" r="1.5" />
+                    <circle cx="8" cy="8" r="1.5" />
+                    <circle cx="8" cy="13" r="1.5" />
+                  </svg>
+                </button>
+                <div id="templateActionDropdown" class="dropdown-menu template-action-dropdown" style="display: none;">
+                  <button id="copyPromptBtn" class="dropdown-menu-item" type="button">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path
+                        d="M5.5 2.5H11.5C12.0523 2.5 12.5 2.94772 12.5 3.5V9.5C12.5 10.0523 12.0523 10.5 11.5 10.5H9.5V12.5C9.5 13.0523 9.05228 13.5 8.5 13.5H2.5C1.94772 13.5 1.5 13.0523 1.5 12.5V6.5C1.5 5.94772 1.94772 5.5 2.5 5.5H4.5V3.5C4.5 2.94772 4.94772 2.5 5.5 2.5Z"
+                        stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+                      <path d="M4.5 5.5H8.5C9.05228 5.5 9.5 5.94772 9.5 6.5V10.5" stroke="currentColor"
+                        stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <span>Copy Prompt</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Template Selector Trigger -->
+              <div id="templateSelectBtn" class="ai-template-selector-trigger" role="button" tabindex="0"
+                title="Click to switch insight template">
+                <div class="ai-template-selector-info">
+                  <span class="ai-template-prefix">Insight Template:</span>
+                  <span id="activeTemplateNameDisplay" class="ai-template-name">General Insight</span>
+                </div>
+                <span id="templateChevronIcon" class="ai-template-chevron">▼</span>
+              </div>
+
+              <div id="templateDropdownMenu" class="dropdown-menu template-dropdown"></div>
+            </div>
+
+            <!-- Tier 2: Action Buttons -->
+            <div class="ai-action-buttons-row">
+              <button id="runInsightBtn" class="btn btn-ai-generate" title="Generate AI insight for this job">
+                <span class="sparkle-icon">✨</span>
+                <span id="runInsightBtnText">Generate Insight</span>
+              </button>
+              <button id="toggleAskBtn" class="btn btn-ai-ask"
+                title="Ask anything about this job (shares active template context)">
+                <span class="ask-icon">💬</span>
+                <span>Ask Anything...</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Ask Anything Inline Form -->
+          <div id="askAnythingBox" class="ask-anything-box search-input-hidden">
+            <textarea id="askQueryInput" class="ask-query-textarea" rows="2"
+              placeholder="Ask any question about this job posting..."></textarea>
+            <div class="ask-actions">
+              <button id="submitAskBtn" class="btn btn-small btn-primary">Ask AI</button>
+              <button id="cancelAskBtn" class="btn btn-small btn-secondary">Cancel</button>
+            </div>
+          </div>
+
+          <!-- Slot Limit Notice (Shown when 4/4 slots are used) -->
+          <div id="slotLimitNotice" class="slot-limit-notice search-input-hidden">
+            Maximum 4 insight slots reached. Remove a slot to generate a new one.
+          </div>
+
+          <!-- AI Insight Slots Stream -->
+          <div id="aiSlotsContainer" class="ai-slots-container"></div>
+        </div>
       </div>
     </div>
 
@@ -113,151 +198,59 @@
         <!-- Filter Buttons, Search, and Menu -->
         <div class="saved-header">
           <!-- Search Input hidden by default -->
-          <input
-            type="text"
-            id="searchInput"
-            class="saved-search-input search-input-hidden"
-            placeholder="Search jobs..."
-          />
+          <input type="text" id="searchInput" class="saved-search-input search-input-hidden"
+            placeholder="Search jobs..." />
           <!-- Search, Filter, Sort, and Menu Icons -->
           <div class="saved-header-icons">
             <!-- Search Button -->
-            <button
-              id="searchBtn"
-              class="btn btn-small icon-btn"
-              title="Search jobs"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
+            <button id="searchBtn" class="btn btn-small icon-btn" title="Search jobs">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path
                   d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z"
-                  stroke="currentColor"
-                  stroke-width="1.2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-                <path
-                  d="M14 14L11.1 11.1"
-                  stroke="currentColor"
-                  stroke-width="1.2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
+                  stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M14 14L11.1 11.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"
+                  stroke-linejoin="round" />
               </svg>
             </button>
             <!-- Filter Button -->
-            <button
-              id="filterBtn"
-              class="btn btn-small icon-btn"
-              title="Filter jobs"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M2 3h12l-5 6v4l-2-1v-3l-5-6z"
-                  stroke="currentColor"
-                  stroke-width="1.2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  fill="none"
-                />
+            <button id="filterBtn" class="btn btn-small icon-btn" title="Filter jobs">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 3h12l-5 6v4l-2-1v-3l-5-6z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"
+                  stroke-linejoin="round" fill="none" />
               </svg>
             </button>
             <!-- Sort Button -->
-            <button
-              id="sortBtn"
-              class="btn btn-small icon-btn"
-              title="Sort jobs"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M2 4h12M4 8h8m-6 4h4"
-                  stroke="currentColor"
-                  stroke-width="1.2"
-                  stroke-linecap="round"
-                />
+            <button id="sortBtn" class="btn btn-small icon-btn" title="Sort jobs">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 4h12M4 8h8m-6 4h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
               </svg>
             </button>
             <!-- 3-dots Menu -->
-            <button
-              id="menuBtn"
-              class="btn btn-small icon-btn"
-              title="More options"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
+            <button id="menuBtn" class="btn btn-small icon-btn" title="More options">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="8" cy="4" r="1.5" fill="currentColor" />
                 <circle cx="8" cy="8" r="1.5" fill="currentColor" />
                 <circle cx="8" cy="12" r="1.5" fill="currentColor" />
               </svg>
             </button>
             <div id="menuDropdown" class="dropdown-menu">
+              <div id="menuTotalSavedJobs" class="dropdown-menu-info">Total saved: 0/3000 jobs</div>
+              <div class="dropdown-divider"></div>
               <button id="exportJobs" class="dropdown-menu-item">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M8 2V10M8 2L5.5 4.5M8 2L10.5 4.5"
-                    stroke="currentColor"
-                    stroke-width="1.2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                  <path
-                    d="M2 10V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V10"
-                    stroke="currentColor"
-                    stroke-width="1.2"
-                    stroke-linecap="round"
-                  />
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 2V10M8 2L5.5 4.5M8 2L10.5 4.5" stroke="currentColor" stroke-width="1.2"
+                    stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M2 10V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V10" stroke="currentColor"
+                    stroke-width="1.2" stroke-linecap="round" />
                 </svg>
                 <span>Export Jobs</span>
               </button>
               <button id="importJobs" class="dropdown-menu-item">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M8 10V2M8 10L5.5 7.5M8 10L10.5 7.5"
-                    stroke="currentColor"
-                    stroke-width="1.2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                  <path
-                    d="M2 10V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V10"
-                    stroke="currentColor"
-                    stroke-width="1.2"
-                    stroke-linecap="round"
-                  />
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 10V2M8 10L5.5 7.5M8 10L10.5 7.5" stroke="currentColor" stroke-width="1.2"
+                    stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M2 10V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V10" stroke="currentColor"
+                    stroke-width="1.2" stroke-linecap="round" />
                 </svg>
                 <span>Import Jobs</span>
               </button>
@@ -275,45 +268,300 @@
             </div>
             <!-- Sort Dropdown -->
             <div id="sortDropdown" class="dropdown-menu sort-dropdown">
-              <div
-                id="sortLatestOption"
-                class="dropdown-menu-item sort-dropdown-item active"
-                data-sort="latest"
-              >
+              <div id="sortLatestOption" class="dropdown-menu-item sort-dropdown-item active" data-sort="latest">
                 <span class="sort-indicator active">●</span>
                 <span>Latest Scans</span>
               </div>
-              <div
-                id="sortEarliestOption"
-                class="dropdown-menu-item sort-dropdown-item"
-                data-sort="earliest"
-              >
+              <div id="sortEarliestOption" class="dropdown-menu-item sort-dropdown-item" data-sort="earliest">
                 <span class="sort-indicator">●</span>
                 <span>Oldest Scans</span>
               </div>
-              <div
-                id="sortMostMatchesOption"
-                class="dropdown-menu-item sort-dropdown-item"
-                data-sort="most-matches"
-              >
+              <div id="sortMostMatchesOption" class="dropdown-menu-item sort-dropdown-item" data-sort="most-matches">
                 <span class="sort-indicator">●</span>
                 <span>Most Matches</span>
               </div>
             </div>
           </div>
         </div>
-        <input
-          type="file"
-          id="importFileInput"
-          accept=".json"
-          class="search-input-hidden"
-        />
+        <input type="file" id="importFileInput" accept=".json" class="search-input-hidden" />
         <div class="saved-jobs-wrapper">
           <div id="savedJobsList" class="saved-jobs-list"></div>
         </div>
       </div>
     </div>
+  </div>
 
-    <script src="panel.js"></script>
-  </body>
+  <!-- Templates Management Sub-View -->
+  <div id="templatesView" class="view-container">
+    <div class="subview-header">
+      <button id="templatesBackBtn" class="btn btn-small icon-btn subview-back-btn" title="Back to Scan">
+        ←
+      </button>
+      <h2 class="subview-title">AI Insight Templates</h2>
+      <button id="newTemplateBtn" class="btn btn-small btn-primary">
+        + New
+      </button>
+    </div>
+    <div class="container scrollable-container">
+      <div id="templatesList" class="templates-list"></div>
+    </div>
+  </div>
+
+  <!-- Template Editor Modal / Slide-over -->
+  <div id="templateEditorOverlay" class="modal-overlay search-input-hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="templateEditorTitle">Edit Template</h3>
+        <button id="closeTemplateEditorBtn" class="btn btn-small icon-btn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="templateNameInput">Template Name</label>
+          <input type="text" id="templateNameInput" class="form-input"
+            placeholder="e.g. My Primary Insight, Visa Hunter" />
+        </div>
+
+        <div class="form-group">
+          <label for="templateContextInput">
+            Context / Background
+            <span class="label-hint">(Paste resume, skills, preferred roles, relocation needs)</span>
+          </label>
+          <textarea id="templateContextInput" class="form-textarea" rows="6"
+            placeholder="e.g. 5 years experience as Frontend Developer with React, TypeScript, GraphQL... Willing to relocate..."></textarea>
+        </div>
+
+        <div class="criteria-header-row">
+          <label class="criteria-title-label">Evaluation Criteria</label>
+          <button id="addCriterionBtn" class="btn btn-small btn-secondary" type="button">
+            + Add Criterion
+          </button>
+        </div>
+
+        <div id="criteriaEditorList" class="criteria-editor-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="saveTemplateBtn" class="btn btn-primary">Save Template</button>
+        <button id="cancelTemplateBtn" class="btn btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Dialog Modal -->
+  <div id="confirmationModalOverlay" class="modal-overlay search-input-hidden">
+    <div class="modal-card confirmation-modal-card">
+      <div class="modal-header">
+        <h3 id="confirmationModalTitle">Remove Insight</h3>
+        <button id="closeConfirmationModalBtn" class="btn btn-small icon-btn" type="button" title="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmationModalMessage" class="confirmation-modal-text">
+          Are you sure you want to remove this AI insight?
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button id="confirmActionBtn" class="btn btn-danger" type="button">Remove</button>
+        <button id="cancelActionBtn" class="btn btn-secondary" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Sub-View -->
+  <div id="settingsView" class="view-container">
+    <div class="subview-header">
+      <button id="settingsBackBtn" class="btn btn-small icon-btn subview-back-btn" title="Back to Scan">
+        ←
+      </button>
+      <h2 class="subview-title">Settings</h2>
+    </div>
+
+    <div class="container scrollable-container">
+
+
+      <!-- Keyword Management Section -->
+      <div class="settings-section">
+        <h3 class="settings-section-heading">Keyword Management</h3>
+        <p class="subview-description">
+          Configure visa and custom keywords to scan and highlight in job descriptions.
+        </p>
+
+        <!-- Visa Keywords Section -->
+        <div class="kw-box">
+          <div class="kw-box-header" data-toggle="visa">
+            <h3 class="kw-section-title">Visa Keywords</h3>
+            <span class="kw-toggle" id="visaToggle">▶</span>
+          </div>
+          <div id="visaKwContent" class="kw-content search-input-hidden">
+            <div class="kw-row">
+              <input id="visaKwInput" class="kw-input" placeholder="Add keyword… e.g. Visa, H1B or /regex/" />
+              <button id="addVisaKw" class="btn btn-small">Add</button>
+            </div>
+            <div id="visaKwChips" class="kw-row"></div>
+          </div>
+        </div>
+
+        <!-- Custom Keywords Section -->
+        <div class="kw-box">
+          <div class="kw-box-header" data-toggle="custom">
+            <h3 class="kw-section-title">Custom Keywords</h3>
+            <span class="kw-toggle" id="customToggle">▶</span>
+          </div>
+          <div id="customKwContent" class="kw-content search-input-hidden">
+            <div class="kw-row">
+              <input id="customKwInput" class="kw-input" placeholder="Add custom keyword… e.g. React or /regex/" />
+              <button id="addCustomKw" class="btn btn-small">Add</button>
+            </div>
+            <div id="customKwChips" class="kw-row"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <!-- AI Settings Section -->
+      <div class="settings-section">
+        <h3 class="settings-section-heading">AI Configuration (BYO API Key)</h3>
+        <p class="subview-description">
+          Connect any OpenAI-compatible API (OpenAI, OpenRouter, Ollama, etc.).
+        </p>
+
+        <div class="form-group">
+          <label for="aiBaseUrl">API Base URL</label>
+          <input type="text" id="aiBaseUrl" class="form-input" placeholder="https://api.openai.com/v1" />
+          <span class="label-hint">Default: https://api.openai.com/v1</span>
+        </div>
+
+        <div class="form-group">
+          <label for="aiApiKey">API Key</label>
+          <div class="password-input-wrapper">
+            <input type="password" id="aiApiKey" class="form-input" placeholder="sk-..." autocomplete="off" />
+            <button id="toggleApiKeyBtn" class="btn btn-small icon-btn password-toggle-btn" type="button"
+              title="Toggle visibility">
+              👁️
+            </button>
+          </div>
+          <span class="label-hint">API keys are stored locally in your browser and never shared.</span>
+        </div>
+
+        <div class="form-group">
+          <label for="aiModelInput">Model</label>
+          <div class="model-input-wrapper">
+            <input type="text" id="aiModelInput" class="form-input" list="aiModelsDatalist"
+              placeholder="Select or enter model (e.g. gpt-4o-mini)" />
+            <datalist id="aiModelsDatalist"></datalist>
+            <button id="refreshModelsBtn" class="btn btn-small icon-btn" type="button" title="Discover models from API">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M13.5 8A5.5 5.5 0 1 1 11 3.5M11 1.5V4H13.5" stroke="currentColor" stroke-width="1.2"
+                  stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+          <div id="modelsDiscoveryStatus" class="label-hint">Click the refresh icon to auto-discover models from your
+            API.</div>
+        </div>
+
+        <div class="form-row-2col">
+          <div class="form-group">
+            <label for="aiTemperatureInput">Temperature</label>
+            <input type="number" id="aiTemperatureInput" class="form-input" step="0.05" min="0" max="2"
+              placeholder="0.3" />
+            <span class="label-hint">Default: 0.3 (recommended: 0.1 – 0.4)</span>
+          </div>
+          <div class="form-group">
+            <label for="aiMaxTokensInput">Max Tokens</label>
+            <input type="number" id="aiMaxTokensInput" class="form-input" min="1" step="1"
+              placeholder="Model default" />
+            <span class="label-hint">Leave empty for model default</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="aiReasoningEffortInput">Reasoning Effort</label>
+          <input type="text" id="aiReasoningEffortInput" class="form-input" placeholder="e.g. low (optional)" />
+          <span class="label-hint">Optional: reasoning effort level for models supporting it.</span>
+        </div>
+
+        <div class="form-group">
+          <label for="aiSystemInstruction">System Instruction</label>
+          <textarea id="aiSystemInstruction" class="form-textarea" rows="3"
+            placeholder="You are an expert career advisor and technical recruiter..."></textarea>
+        </div>
+
+        <div class="settings-actions-row">
+          <button id="testAiConnectionBtn" class="btn btn-secondary">
+            Test Connection
+          </button>
+          <button id="saveAiSettingsBtn" class="btn btn-primary">
+            Save AI Settings
+          </button>
+        </div>
+        <div id="aiSettingsStatus" class="settings-status-message search-input-hidden"></div>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <!-- Backup and Restore Section -->
+      <div class="settings-section">
+        <h3 class="settings-section-heading">Backup and Restore</h3>
+        <p class="subview-description">
+          Backup and restore your keywords, insight templates, and preferences.
+        </p>
+        <div class="settings-actions-row">
+          <button id="exportSettingsBtn" class="btn btn-secondary">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
+              style="margin-right: 6px;">
+              <path d="M8 2V10M8 2L5.5 4.5M8 2L10.5 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path d="M2 10V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V10" stroke="currentColor"
+                stroke-width="1.2" stroke-linecap="round" />
+            </svg>
+            Export Settings
+          </button>
+          <button id="importSettingsBtn" class="btn btn-secondary">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
+              style="margin-right: 6px;">
+              <path d="M8 10V2M8 10L5.5 7.5M8 10L10.5 7.5" stroke="currentColor" stroke-width="1.2"
+                stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M2 10V13C2 13.5523 2.44772 14 3 14H13C13.5523 14 14 13.5523 14 13V10" stroke="currentColor"
+                stroke-width="1.2" stroke-linecap="round" />
+            </svg>
+            Import Settings
+          </button>
+          <input type="file" id="importSettingsInput" accept=".json" class="search-input-hidden" />
+        </div>
+        <p class="label-hint" style="margin-top: 10px;">
+          💡 <strong>Note:</strong> To export or import scanned jobs, go to the <strong>Scanned Jobs</strong> tab and
+          use the options menu (<strong>⋮</strong>).
+        </p>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <!-- Extension Version & Footer -->
+      <div class="settings-version-footer">
+        <div class="settings-version-row">
+          <span id="extensionVersion">Version 2.0.0</span>
+          <span class="settings-version-sep">·</span>
+          <a href="#" id="checkUpdatesBtn" class="check-updates-link">Check for update</a>
+        </div>
+        <div id="updateStatusMessage" class="settings-status-message search-input-hidden"></div>
+        <div class="settings-github-container">
+          <a href="https://github.com/alireza-malek/linkedin-job-lens/" target="_blank" rel="noopener noreferrer"
+            class="settings-github-link" title="GitHub - alireza-malek/linkedin-job-lens"
+            aria-label="GitHub Repository">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path fill-rule="evenodd" clip-rule="evenodd"
+                d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="ai_service.js"></script>
+  <script src="shared_ui.js"></script>
+  <script src="panel.js"></script>
+</body>
+
 </html>

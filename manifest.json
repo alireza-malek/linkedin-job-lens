@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn Job Lens",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "Highlights visa/relocation or custom keywords on LinkedIn job posts, and saves them to a list.",
   "permissions": [
     "activeTab",
@@ -11,7 +11,12 @@
     "tabs",
     "downloads"
   ],
-  "host_permissions": ["https://www.linkedin.com/*"],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
   "background": {
     "service_worker": "service_worker.js"
   },
@@ -21,7 +26,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.linkedin.com/*"],
-      "js": ["content.js"],
+      "js": ["shared_ui.js", "content.js"],
       "css": ["styles.css"],
       "run_at": "document_idle"
     }
