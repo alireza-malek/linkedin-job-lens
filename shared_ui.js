@@ -140,6 +140,9 @@
 
     const toggle = (e) => {
       e.stopPropagation();
+      // If user was dragging to select text, don't toggle
+      if (window.getSelection && window.getSelection().toString().trim()) return;
+
       // If preview is fully displayed without needing expansion, ignore toggle clicks
       if (!isExpanded && textEl.scrollHeight <= textEl.clientHeight + 2) return;
 
@@ -242,8 +245,10 @@
       const outTok = tokens.output ?? 0;
       const totalTok = tokens.total ?? (inTok + outTok);
       const reasoningTok = typeof tokens.reasoning === 'number' ? tokens.reasoning : parseInt(tokens.reasoning, 10);
-      const reasoningStr = (!isNaN(reasoningTok) && reasoningTok > 0) ? ` · ${reasoningTok.toLocaleString()} reasoning` : '';
-      tooltipRows += `<div class="ai-slot-tooltip-row"><span class="ai-slot-tooltip-label">Tokens:</span><span>${inTok.toLocaleString()} in · ${outTok.toLocaleString()} out${reasoningStr} (${totalTok.toLocaleString()} total)</span></div>`;
+      const reasoningStr = (!isNaN(reasoningTok) && reasoningTok > 0) ? ` (${reasoningTok.toLocaleString()} reasoning)` : '';
+      const cachedTok = typeof tokens.cached === 'number' ? tokens.cached : parseInt(tokens.cached, 10);
+      const cachedStr = (!isNaN(cachedTok) && cachedTok > 0) ? ` (${cachedTok.toLocaleString()} cached)` : '';
+      tooltipRows += `<div class="ai-slot-tooltip-row"><span class="ai-slot-tooltip-label">Tokens:</span><span>${inTok.toLocaleString()} in${cachedStr} · ${outTok.toLocaleString()} out${reasoningStr} · ${totalTok.toLocaleString()} total</span></div>`;
     }
 
     if (requestId) {

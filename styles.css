@@ -1593,7 +1593,6 @@ mark.jl-mark {
   justify-content: space-between;
   gap: var(--spacing-xs);
   cursor: pointer;
-  user-select: none;
   margin-bottom: 2px;
 }
 
@@ -1613,6 +1612,7 @@ mark.jl-mark {
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
+  user-select: none;
 }
 
 .ai-criteria-copy-btn,

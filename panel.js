@@ -2754,6 +2754,7 @@ async function runAIInsight() {
           output: aiResponse.usage?.completionTokens ?? null,
           total: aiResponse.usage?.totalTokens ?? null,
           reasoning: aiResponse.usage?.reasoningTokens ?? null,
+          cached: aiResponse.usage?.cachedTokens ?? null,
           requestId: aiResponse.requestId ?? null
         }
       };
@@ -2834,6 +2835,7 @@ if (submitAskBtn) {
             output: aiResponse.usage?.completionTokens ?? null,
             total: aiResponse.usage?.totalTokens ?? null,
             reasoning: aiResponse.usage?.reasoningTokens ?? null,
+            cached: aiResponse.usage?.cachedTokens ?? null,
             requestId: aiResponse.requestId ?? null
           }
         };

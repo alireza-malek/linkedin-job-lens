@@ -34,6 +34,21 @@ class AIService {
   }
 
   /**
+   * Extracts cached prompt tokens from provider usage formats
+   * @param {Object} usage
+   * @returns {number|null}
+   */
+  static extractCachedTokens(usage) {
+    if (!usage || typeof usage !== 'object') return null;
+    return (
+      usage.prompt_tokens_details?.cached_tokens ??
+      usage.prompt_cache_hit_tokens ??
+      usage.cache_read_input_tokens ??
+      null
+    );
+  }
+
+  /**
    * Discover available models from the provider
    * @param {string} baseUrl
    * @param {string} apiKey
@@ -109,17 +124,17 @@ class AIService {
 ${template?.context || 'No specific candidate profile provided.'}
 
 ---
+CRITERIA TO EVALUATE:
+${criteriaFormatted || 'None specified'}
+
+---
 JOB DETAILS:
 Title: ${jobDetails?.jobTitle || 'Unknown Title'}
 Company: ${jobDetails?.companyName || 'Unknown Company'}
 Location: ${jobDetails?.location || 'Unknown Location'}
 
 JOB DESCRIPTION:
-${jobDetails?.description || 'No job description available.'}
-
----
-CRITERIA TO EVALUATE:
-${criteriaFormatted || 'None specified'}`;
+${jobDetails?.description || 'No job description available.'}`;
   }
 
   /**
@@ -158,10 +173,22 @@ ${criteriaFormatted || 'None specified'}`;
       throw new Error(`The template "${template.name}" has no enabled criteria.`);
     }
 
+    const criteriaFormatted = enabledCriterias
+      .map((c, i) => `${i + 1}. Criteria Name: "${c.name}"\n   Instruction: ${c.instruction}`)
+      .join('\n\n');
+
     const sysInstruction = (systemInstruction || '').trim() || DEFAULT_SYSTEM_INSTRUCTION;
 
     const systemPrompt = `${sysInstruction}
 
+CANDIDATE CONTEXT:
+${template?.context || 'No specific candidate profile provided.'}
+
+---
+CRITERIA TO EVALUATE:
+${criteriaFormatted}
+
+---
 You MUST return your answer strictly as a valid JSON object matching this schema:
 {
   "criterias": [
@@ -173,7 +200,13 @@ You MUST return your answer strictly as a valid JSON object matching this schema
 }
 Make sure every requested criteria is included with its exact name. Return valid JSON only, without any explanatory notes or wrapping text outside the JSON.`;
 
-    const userPrompt = this.buildInsightUserPrompt({ template, jobDetails });
+    const userPrompt = `JOB DETAILS:
+Title: ${jobDetails?.jobTitle || 'Unknown Title'}
+Company: ${jobDetails?.companyName || 'Unknown Company'}
+Location: ${jobDetails?.location || 'Unknown Location'}
+
+JOB DESCRIPTION:
+${jobDetails?.description || 'No job description available.'}`;
 
     const endpoint = `${this.cleanBaseUrl(baseUrl)}/chat/completions`;
 
@@ -188,6 +221,7 @@ Make sure every requested criteria is included with its exact name. Return valid
       ],
       temperature: finalTemp,
       response_format: { type: 'json_object' },
+      // cache_control: { type: 'ephemeral' }, // only for anthropic models
       stream: false
     };
 
@@ -247,10 +281,11 @@ Make sure every requested criteria is included with its exact name. Return valid
       results,
       requestId,
       usage: {
-        promptTokens: usage.prompt_tokens ?? null,
-        completionTokens: usage.completion_tokens ?? null,
+        promptTokens: usage.prompt_tokens ?? usage.input_tokens ?? null,
+        completionTokens: usage.completion_tokens ?? usage.output_tokens ?? null,
         totalTokens: usage.total_tokens ?? null,
-        reasoningTokens: usage.completion_tokens_details?.reasoning_tokens ?? usage.reasoning_tokens ?? null
+        reasoningTokens: usage.completion_tokens_details?.reasoning_tokens ?? usage.reasoning_tokens ?? null,
+        cachedTokens: this.extractCachedTokens(usage)
       }
     };
   }
@@ -343,11 +378,12 @@ Make sure every requested criteria is included with its exact name. Return valid
 
     const sysInstruction = (systemInstruction || '').trim() || DEFAULT_SYSTEM_INSTRUCTION;
 
-    const userPrompt = `CANDIDATE CONTEXT:
-${templateContext || 'No candidate profile provided.'}
+    const systemPrompt = `${sysInstruction}
 
----
-JOB DETAILS:
+CANDIDATE CONTEXT:
+${templateContext || 'No candidate profile provided.'}`;
+
+    const userPrompt = `JOB DETAILS:
 Title: ${jobDetails.jobTitle || 'Unknown Title'}
 Company: ${jobDetails.companyName || 'Unknown Company'}
 Location: ${jobDetails.location || 'Unknown Location'}
@@ -369,10 +405,11 @@ Please provide a direct, concise, and helpful answer.`;
     const payload = {
       model: model.trim(),
       messages: [
-        { role: 'system', content: sysInstruction },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
       temperature: finalTemp,
+      // cache_control: { type: 'ephemeral' }, // only for anthropic models
       stream: false
     };
 
@@ -417,10 +454,11 @@ Please provide a direct, concise, and helpful answer.`;
       answer,
       requestId,
       usage: {
-        promptTokens: usage.prompt_tokens ?? null,
-        completionTokens: usage.completion_tokens ?? null,
+        promptTokens: usage.prompt_tokens ?? usage.input_tokens ?? null,
+        completionTokens: usage.completion_tokens ?? usage.output_tokens ?? null,
         totalTokens: usage.total_tokens ?? null,
-        reasoningTokens: usage.completion_tokens_details?.reasoning_tokens ?? usage.reasoning_tokens ?? null
+        reasoningTokens: usage.completion_tokens_details?.reasoning_tokens ?? usage.reasoning_tokens ?? null,
+        cachedTokens: this.extractCachedTokens(usage)
       }
     };
   }
